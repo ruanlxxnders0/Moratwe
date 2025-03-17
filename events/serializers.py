@@ -1,0 +1,194 @@
+from rest_framework import serializers
+from .models import Event, BreakawaySession, RSVP
+from users.serializers import CustomUserSerializer
+from django.contrib.auth import get_user_model
+import qrcode
+from io import BytesIO
+from django.core.files.base import ContentFile
+import uuid
+
+User = get_user_model()
+
+
+class BreakawaySessionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the BreakawaySession model.
+    """
+    panelists = CustomUserSerializer(many=True, read_only=True)
+    panelist_ids = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(is_organizer=True),
+        write_only=True,
+        many=True,
+        required=False,
+        source='panelists'
+    )
+    
+    class Meta:
+        model = BreakawaySession
+        fields = (
+            'id', 'event', 'title', 'description', 'start_time', 'end_time',
+            'max_attendees', 'panelists', 'panelist_ids'
+        )
+        read_only_fields = ('id',)
+
+
+class EventSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Event model.
+    """
+    organizer = CustomUserSerializer(read_only=True)
+    organizer_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(is_organizer=True),
+        write_only=True,
+        required=False,
+        source='organizer'
+    )
+    breakaways = BreakawaySessionSerializer(many=True, read_only=True)
+    is_past = serializers.BooleanField(read_only=True)
+    date = serializers.DateTimeField(required=True)
+    location = serializers.CharField(required=True)
+    title = serializers.CharField(required=True)
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+    organizer_name = serializers.SerializerMethodField()
+    user_rsvpd = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Event
+        fields = (
+            'id', 'title', 'description', 'location', 'date',
+            'organizer', 'organizer_id', 'created_at', 'updated_at', 
+            'is_active', 'is_past', 'breakaways', 'organizer_name',
+            'user_rsvpd'
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'is_past')
+    
+    def get_organizer_name(self, obj):
+        """
+        Get a display name for the organizer.
+        """
+        if obj.organizer:
+            if obj.organizer.first_name and obj.organizer.last_name:
+                return f"{obj.organizer.first_name} {obj.organizer.last_name}"
+            return obj.organizer.email.split('@')[0]
+        return "Unknown Organizer"
+    
+    def get_user_rsvpd(self, obj):
+        """
+        Check if the current user has RSVP'd for this event.
+        """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return RSVP.objects.filter(event=obj, user=request.user).exists()
+        return False
+    
+    def validate(self, data):
+        """
+        Validate that all required fields are present and non-null.
+        """
+        if not data.get('title'):
+            raise serializers.ValidationError("Title is required")
+        if not data.get('date'):
+            raise serializers.ValidationError("Date is required")
+        if not data.get('location'):
+            raise serializers.ValidationError("Location is required")
+        return data
+    
+    def create(self, validated_data):
+        """
+        Create and return a new event.
+        """
+        # If organizer is not provided, set it to the current user
+        if 'organizer' not in validated_data and self.context.get('request'):
+            user = self.context['request'].user
+            if user.is_organizer:
+                validated_data['organizer'] = user
+            else:
+                raise serializers.ValidationError("Only organizers can create events.")
+        
+        return super().create(validated_data)
+
+
+class RSVPSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the RSVP model.
+    """
+    user = CustomUserSerializer(read_only=True)
+    event = EventSerializer(read_only=True)
+    event_id = serializers.PrimaryKeyRelatedField(
+        queryset=Event.objects.filter(is_active=True),
+        write_only=True,
+        source='event'
+    )
+    selected_sessions = BreakawaySessionSerializer(many=True, read_only=True)
+    session_ids = serializers.PrimaryKeyRelatedField(
+        queryset=BreakawaySession.objects.all(),
+        write_only=True,
+        many=True,
+        required=False,
+        source='selected_sessions'
+    )
+    qr_code_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = RSVP
+        fields = (
+            'id', 'event', 'event_id', 'user', 'qr_code', 'qr_code_url', 'qr_code_data',
+            'selected_sessions', 'session_ids', 'created_at', 'checked_in'
+        )
+        read_only_fields = ('id', 'user', 'qr_code', 'qr_code_data', 'created_at', 'checked_in')
+    
+    def get_qr_code_url(self, obj):
+        """
+        Get the URL of the QR code.
+        """
+        if obj.qr_code:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.qr_code.url)
+        return None
+    
+    def create(self, validated_data):
+        """
+        Create and return a new RSVP.
+        """
+        # Set the user field to the current user
+        validated_data['user'] = self.context['request'].user
+        
+        # Create the RSVP
+        rsvp = super().create(validated_data)
+        
+        # QR code is generated automatically in the model's save method
+        
+        return rsvp
+    
+    def validate_event_id(self, value):
+        """
+        Validate that the event is active and not in the past.
+        """
+        if not value.is_active:
+            raise serializers.ValidationError("Cannot RSVP for an inactive event.")
+        
+        if value.is_past:
+            raise serializers.ValidationError("Cannot RSVP for a past event.")
+        
+        # Check if the user is already registered for this event
+        user = self.context['request'].user
+        if RSVP.objects.filter(event=value, user=user).exists():
+            raise serializers.ValidationError("You have already RSVP'd for this event.")
+        
+        return value
+    
+    def validate_session_ids(self, value):
+        """
+        Validate that the selected sessions belong to the event.
+        """
+        event_id = self.initial_data.get('event_id')
+        if event_id and value:
+            event = Event.objects.get(pk=event_id)
+            for session in value:
+                if session.event.id != event.id:
+                    raise serializers.ValidationError(
+                        f"Session '{session.title}' does not belong to the selected event."
+                    )
+        
+        return value 
