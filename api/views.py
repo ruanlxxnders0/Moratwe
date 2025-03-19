@@ -1,12 +1,12 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework import generics, permissions, status, views
+from rest_framework import generics, permissions, status, views, parsers
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.serializers import UserCreateSerializer, CustomUserSerializer
 from users.models import CustomUser
-from events.models import Event, RSVP
-from events.serializers import EventSerializer
+from events.models import Event, RSVP, BreakawaySession
+from events.serializers import EventSerializer, BreakawaySessionSerializer
 import logging
 from django.utils import timezone
 from django.contrib.auth import authenticate
@@ -64,7 +64,12 @@ class TestAPIView(views.APIView):
                 '/api/token/refresh/',
                 '/api/register/',
                 '/api/users/me/',
-                '/api/test-user/'
+                '/api/events/',
+                '/api/events/<event_id>/',
+                '/api/events/<event_id>/rsvp/',
+                '/api/events/<event_id>/image/',
+                '/api/events/<event_id>/breakaway-sessions/<session_id>/attend/',
+                '/api/rsvps/'
             ]
         })
 
@@ -164,7 +169,7 @@ class EventDetailView(views.APIView):
     permission_classes = [permissions.AllowAny]
     
     def get(self, request, event_id):
-        event = get_object_or_404(Event.objects.select_related('organizer'), id=event_id, is_active=True)
+        event = get_object_or_404(Event.objects.select_related('organizer').prefetch_related('breakaways', 'breakaways__panelists'), id=event_id, is_active=True)
         serializer = EventSerializer(event, context={'request': request})
         return Response(serializer.data)
 
@@ -396,3 +401,78 @@ class PasswordResetConfirmView(views.APIView):
                 {'detail': 'User not found.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class BreakawaySessionAttendanceView(views.APIView):
+    """
+    Toggle attendance for a breakaway session.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, event_id, session_id):
+        # Get the event and session or return 404
+        event = get_object_or_404(Event, id=event_id, is_active=True)
+        session = get_object_or_404(BreakawaySession, id=session_id, event=event)
+        
+        # Check if the user has RSVP'd to the event
+        try:
+            rsvp = RSVP.objects.get(event=event, user=request.user)
+        except RSVP.DoesNotExist:
+            return Response(
+                {'detail': 'You must RSVP to the event before selecting sessions.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        attending = request.data.get('attending', False)
+        
+        # Add or remove the session
+        if attending:
+            rsvp.selected_sessions.add(session)
+        else:
+            rsvp.selected_sessions.remove(session)
+        
+        # Get all selected sessions for the user
+        selected_sessions = rsvp.selected_sessions.all()
+        
+        # Serialize the session data with context
+        serializer = BreakawaySessionSerializer(session, context={'request': request})
+        
+        # Return updated session with attendance status
+        return Response({
+            'message': 'Attendance updated successfully',
+            'session': serializer.data,
+            'attending': attending,
+            'selected_session_count': selected_sessions.count()
+        })
+
+class EventImageUploadView(views.APIView):
+    """
+    Upload an image for an event.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+    
+    def post(self, request, event_id):
+        event = get_object_or_404(Event, id=event_id)
+        
+        # Check if the user is the organizer of the event
+        if event.organizer != request.user and not request.user.is_staff:
+            return Response(
+                {'detail': 'You must be the organizer or staff to upload an image.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get the image from the request
+        image = request.data.get('image')
+        if not image:
+            return Response(
+                {'detail': 'No image provided.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update the event with the new image
+        event.image = image
+        event.save()
+        
+        # Return the updated event data
+        serializer = EventSerializer(event, context={'request': request})
+        return Response(serializer.data)

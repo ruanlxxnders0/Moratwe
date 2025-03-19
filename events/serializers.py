@@ -22,14 +22,28 @@ class BreakawaySessionSerializer(serializers.ModelSerializer):
         required=False,
         source='panelists'
     )
+    user_attending = serializers.SerializerMethodField()
     
     class Meta:
         model = BreakawaySession
         fields = (
             'id', 'event', 'title', 'description', 'start_time', 'end_time',
-            'max_attendees', 'panelists', 'panelist_ids'
+            'max_attendees', 'panelists', 'panelist_ids', 'user_attending'
         )
         read_only_fields = ('id',)
+    
+    def get_user_attending(self, obj):
+        """
+        Check if the current user is attending this session.
+        """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            # Get the user's RSVP for the event
+            rsvp = RSVP.objects.filter(event=obj.event, user=request.user).first()
+            if rsvp:
+                # Check if this session is in the user's selected sessions
+                return rsvp.selected_sessions.filter(id=obj.id).exists()
+        return False
 
 
 class EventSerializer(serializers.ModelSerializer):
@@ -51,6 +65,7 @@ class EventSerializer(serializers.ModelSerializer):
     description = serializers.CharField(required=False, allow_blank=True, default='')
     organizer_name = serializers.SerializerMethodField()
     user_rsvpd = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Event
@@ -58,9 +73,9 @@ class EventSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'location', 'date',
             'organizer', 'organizer_id', 'created_at', 'updated_at', 
             'is_active', 'is_past', 'breakaways', 'organizer_name',
-            'user_rsvpd'
+            'user_rsvpd', 'image', 'image_url'
         )
-        read_only_fields = ('id', 'created_at', 'updated_at', 'is_past')
+        read_only_fields = ('id', 'created_at', 'updated_at', 'is_past', 'image_url')
     
     def get_organizer_name(self, obj):
         """
@@ -80,6 +95,16 @@ class EventSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return RSVP.objects.filter(event=obj, user=request.user).exists()
         return False
+    
+    def get_image_url(self, obj):
+        """
+        Get the absolute URL of the event image.
+        """
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+        return None
     
     def validate(self, data):
         """

@@ -15,7 +15,9 @@ from .views import (
     CustomTokenObtainPairView,
     SimplifiedUserDetailsView,
     PasswordResetRequestView,
-    PasswordResetConfirmView
+    PasswordResetConfirmView,
+    BreakawaySessionAttendanceView,
+    EventImageUploadView
 )
 from users.views import UserViewSet
 
@@ -39,6 +41,9 @@ urlpatterns = [
     path('events/', EventsListView.as_view(), name='events-list'),
     path('events/<int:event_id>/', EventDetailView.as_view(), name='event-detail'),
     path('events/<int:event_id>/rsvp/', EventRSVPView.as_view(), name='event-rsvp'),
+    path('events/<int:event_id>/image/', EventImageUploadView.as_view(), name='event-image-upload'),
+    path('events/<int:event_id>/breakaway-sessions/<int:session_id>/attend/', 
+         BreakawaySessionAttendanceView.as_view(), name='breakaway-session-attendance'),
     
     # RSVPs endpoint
     path('rsvps/', UserRSVPListView.as_view(), name='user-rsvps'),

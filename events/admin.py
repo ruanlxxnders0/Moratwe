@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import Event, BreakawaySession, RSVP
+from django.utils.safestring import mark_safe
 
 
 class BreakawaySessionInline(admin.TabularInline):
@@ -17,11 +18,24 @@ class RSVPInline(admin.TabularInline):
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ('title', 'location', 'date', 'organizer', 'is_active')
+    list_display = ('title', 'location', 'date', 'organizer', 'is_active', 'has_image')
     list_filter = ('is_active', 'date')
     search_fields = ('title', 'description', 'location')
     date_hierarchy = 'date'
     inlines = [BreakawaySessionInline, RSVPInline]
+    readonly_fields = ('display_image',)
+    fields = ('title', 'description', 'date', 'location', 'organizer', 'is_active', 'image', 'display_image')
+    
+    def has_image(self, obj):
+        return bool(obj.image)
+    has_image.boolean = True
+    has_image.short_description = 'Has Image'
+    
+    def display_image(self, obj):
+        if obj.image:
+            return mark_safe(f'<img src="{obj.image.url}" width="300" />')
+        return "No Image"
+    display_image.short_description = 'Image Preview'
 
 
 @admin.register(BreakawaySession)

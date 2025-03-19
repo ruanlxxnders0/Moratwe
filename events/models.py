@@ -14,6 +14,7 @@ class Event(models.Model):
     description = models.TextField(_('description'), blank=True)
     date = models.DateTimeField(_('date'), null=True, default=timezone.now)
     location = models.CharField(_('location'), max_length=255)
+    image = models.ImageField(_('image'), upload_to='event_images/', blank=True, null=True)
     organizer = models.ForeignKey(
         CustomUser, 
         on_delete=models.CASCADE, 
