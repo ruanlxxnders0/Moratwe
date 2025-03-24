@@ -74,3 +74,6 @@ class CustomUserDetailsView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+def privacy_policy(request):
+    return render(request, 'privacy_policy.html')

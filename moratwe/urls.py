@@ -24,7 +24,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from users.views import CustomUserDetailsView
+from users.views import CustomUserDetailsView, privacy_policy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,9 @@ urlpatterns = [
     
     # User details endpoint
     path('api/users/me/', CustomUserDetailsView.as_view(), name='user-details'),
+    
+    # Privacy Policy
+    path('privacy-policy/', privacy_policy, name='privacy-policy'),
     
     # Swagger documentation
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
