@@ -6,7 +6,12 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'moratwe.settings')
+    # Set the default settings module based on environment
+    if os.environ.get('DJANGO_ENV') == 'production':
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'moratwe.settings.production')
+    else:
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'moratwe.settings.development')
+    
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
