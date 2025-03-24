@@ -6,6 +6,8 @@ import requests
 from io import BytesIO
 from django.core.files.base import ContentFile
 from django.contrib.auth.hashers import make_password
+from datetime import timedelta
+from django.utils import timezone
 
 # Setup Django environment - DO NOT MODIFY ANY SETTINGS FILES
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'moratwe.settings')
@@ -138,21 +140,21 @@ def download_image_from_unsplash(search_term):
     return None
 
 def generate_random_date(start_date, end_date):
-    """Generate a random date between start_date and end_date"""
-    time_between_dates = end_date - start_date
-    days_between_dates = time_between_dates.days
-    random_number_of_days = random.randrange(days_between_dates)
-    random_date = start_date + datetime.timedelta(days=random_number_of_days)
+    """Generate a random date between start_date and end_date."""
+    time_between = end_date - start_date
+    days_between = time_between.days
+    random_days = random.randint(0, days_between)
+    random_date = start_date + timedelta(days=random_days)
     
-    # Add random time
-    hour = random.randint(8, 18)  # Between 8 AM and 6 PM
-    minute = random.choice([0, 15, 30, 45])
+    # Generate random time
+    hour = random.randint(9, 17)  # Between 9 AM and 5 PM
+    minute = random.randint(0, 59)
     
-    # Use timezone-aware datetime
-    from django.utils import timezone
-    aware_datetime = timezone.make_aware(random_date.replace(hour=hour, minute=minute))
+    # Create naive datetime
+    naive_datetime = random_date.replace(hour=hour, minute=minute)
     
-    return aware_datetime
+    # Make it timezone aware
+    return timezone.make_aware(naive_datetime)
 
 def create_sample_users(num_users=20):
     """Create sample users for testing"""
@@ -231,7 +233,6 @@ def create_sample_events(num_events=15):
     print(f"Creating {num_events} sample events...")
     
     # Start date ranges for events (past, present, future)
-    from django.utils import timezone
     now = timezone.now()
     start_past = now - datetime.timedelta(days=90)
     end_past = now - datetime.timedelta(days=1)
