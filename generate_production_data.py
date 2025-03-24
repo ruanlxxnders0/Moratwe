@@ -141,6 +141,12 @@ def download_image_from_unsplash(search_term):
 
 def generate_random_date(start_date, end_date):
     """Generate a random date between start_date and end_date."""
+    # Convert to naive datetimes if they're timezone-aware
+    if timezone.is_aware(start_date):
+        start_date = timezone.make_naive(start_date)
+    if timezone.is_aware(end_date):
+        end_date = timezone.make_naive(end_date)
+    
     time_between = end_date - start_date
     days_between = time_between.days
     random_days = random.randint(0, days_between)
