@@ -66,6 +66,7 @@ class EventSerializer(serializers.ModelSerializer):
     organizer_name = serializers.SerializerMethodField()
     user_rsvpd = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
+    qr_code_data = serializers.SerializerMethodField()
     
     class Meta:
         model = Event
@@ -73,7 +74,7 @@ class EventSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'location', 'date',
             'organizer', 'organizer_id', 'created_at', 'updated_at', 
             'is_active', 'is_past', 'breakaways', 'organizer_name',
-            'user_rsvpd', 'image', 'image_url'
+            'user_rsvpd', 'image', 'image_url', 'qr_code_data'
         )
         read_only_fields = ('id', 'created_at', 'updated_at', 'is_past', 'image_url')
     
@@ -104,6 +105,17 @@ class EventSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.image.url)
+        return None
+    
+    def get_qr_code_data(self, obj):
+        """
+        Get the QR code data for the current user's RSVP.
+        """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            rsvp = RSVP.objects.filter(event=obj, user=request.user).first()
+            if rsvp:
+                return rsvp.qr_code_data
         return None
     
     def validate(self, data):

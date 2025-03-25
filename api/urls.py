@@ -20,6 +20,7 @@ from .views import (
     EventImageUploadView
 )
 from users.views import UserViewSet
+from checkin.views import QRCodeCheckInView
 
 # Create a router and register our viewsets with it
 router = DefaultRouter()
@@ -47,6 +48,9 @@ urlpatterns = [
     
     # RSVPs endpoint
     path('rsvps/', UserRSVPListView.as_view(), name='user-rsvps'),
+    
+    # Check-in endpoints
+    path('checkin/qr/', QRCodeCheckInView.as_view(), name='qr-checkin'),
     
     # Include router URLs last to avoid conflicts
     path('', include(router.urls)),
