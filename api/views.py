@@ -177,34 +177,53 @@ class EventRSVPView(views.APIView):
     """
     Handle event RSVPs.
     """
-    permission_classes = [permissions.AllowAny]  # We'll keep this for testing, but in production it should require authentication
+    permission_classes = [permissions.IsAuthenticated]  # Require authentication
     
     def post(self, request, event_id):
-        event = get_object_or_404(Event, id=event_id, is_active=True)
-        attending = request.data.get('attending', False)
-        
-        # Get or create the RSVP
-        rsvp, created = RSVP.objects.get_or_create(
-            event=event,
-            user=request.user if request.user.is_authenticated else CustomUser.objects.first(),
-            defaults={'checked_in': False}
-        )
-        
-        # If attending is False, delete the RSVP
-        if not attending:
-            rsvp.delete()
-            is_attending = False
-        else:
-            is_attending = True
-        
-        # Return response with updated status
-        return Response({
-            'event_id': event_id,
-            'user_id': request.user.id if request.user.is_authenticated else CustomUser.objects.first().id,
-            'attending': is_attending,
-            'status': 'confirmed',
-            'user_rsvpd': is_attending
-        })
+        try:
+            event = get_object_or_404(Event, id=event_id, is_active=True)
+            attending = request.data.get('attending', False)
+            
+            # Try to get existing RSVP
+            rsvp = RSVP.objects.filter(event=event, user=request.user).first()
+            
+            if attending:
+                if rsvp:
+                    # User already RSVP'd
+                    return Response({
+                        'event_id': event_id,
+                        'user_id': request.user.id,
+                        'attending': True,
+                        'status': 'already_confirmed',
+                        'user_rsvpd': True
+                    })
+                else:
+                    # Create new RSVP
+                    rsvp = RSVP.objects.create(
+                        event=event,
+                        user=request.user,
+                        checked_in=False
+                    )
+            else:
+                # If not attending and RSVP exists, delete it
+                if rsvp:
+                    rsvp.delete()
+                    rsvp = None
+            
+            return Response({
+                'event_id': event_id,
+                'user_id': request.user.id,
+                'attending': bool(rsvp),
+                'status': 'confirmed',
+                'user_rsvpd': bool(rsvp)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in EventRSVPView: {str(e)}")
+            return Response({
+                'error': 'An error occurred while processing your RSVP',
+                'detail': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserRSVPListView(views.APIView):
     """
