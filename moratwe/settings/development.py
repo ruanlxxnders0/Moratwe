@@ -8,6 +8,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.0.2.2']
 
+# Site Configuration
+SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
+
 # Database
 DATABASES = {
     'default': {
@@ -31,4 +34,11 @@ SECURE_SSL_REDIRECT = False
 SECURE_HSTS_SECONDS = 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
-SECURE_PROXY_SSL_HEADER = None 
+SECURE_PROXY_SSL_HEADER = None
+
+# Static files configuration
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
