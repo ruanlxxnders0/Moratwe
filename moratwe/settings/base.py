@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'users',
     'events',
     'checkin',
+    'userlists',
 ]
 
 MIDDLEWARE = [

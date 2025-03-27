@@ -1,0 +1,42 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    {% if has_add_permission %}
+        <li>
+            <a href="{% url 'admin:userlists_userlist_add' %}" class="addlink">
+                {% blocktranslate with cl.opts.verbose_name as name %}Add {{ name }}{% endblocktranslate %}
+            </a>
+        </li>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    <div class="module">
+        <h2>Bulk Upload Invitees</h2>
+        <form action="{% url 'admin:userlist-upload-excel' %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div>
+                <label for="excel_file">Select Excel/CSV File:</label>
+                <input type="file" name="excel_file" id="excel_file" accept=".xlsx,.csv" required>
+            </div>
+            <div>
+                <label for="user_list_id">Select User List:</label>
+                <select name="user_list_id" id="user_list_id" required>
+                    {% for user_list in cl.queryset %}
+                        <option value="{{ user_list.id }}">{{ user_list.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <input type="submit" value="Upload">
+            </div>
+        </form>
+        <div class="help">
+            <p>Required columns: email</p>
+            <p>Optional columns: first_name, last_name, mobile_number</p>
+            <p>Supported formats: .xlsx, .csv</p>
+        </div>
+    </div>
+    {{ block.super }}
+{% endblock %} 
