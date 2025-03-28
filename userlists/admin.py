@@ -97,8 +97,7 @@ class UserListAdmin(admin.ModelAdmin):
                             email=email,
                             first_name=str(row[first_name_col]).strip() if first_name_col else '',
                             last_name=str(row[last_name_col]).strip() if last_name_col else '',
-                            mobile_number=str(row[mobile_col]).strip() if mobile_col else '',
-                            rsvp_status='pending'  # Set default RSVP status
+                            mobile_number=str(row[mobile_col]).strip() if mobile_col else ''
                         )
                         invitee.save()
                         success_count += 1

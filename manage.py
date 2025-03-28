@@ -7,6 +7,8 @@ import sys
 def main():
     """Run administrative tasks."""
     # Set the default settings module based on environment
+    # Check if we're running in production environment by looking at DJANGO_ENV
+    # This determines which settings module to use (production vs development)
     if os.environ.get('DJANGO_ENV') == 'production':
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'moratwe.settings.production')
     else:
