@@ -122,8 +122,10 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    # Landing page
+    # Landing pages
     path('', landing_page, name='landing'),
+    path('home/', landing_page, name='home'),
+    path('index/', landing_page, name='index'),
     
     # Contact form
     path('contact/', contact_form, name='contact'),
