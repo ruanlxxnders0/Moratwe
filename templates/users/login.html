@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Login | Moratwe{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center py-12 px-4">
+    <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
+            <p class="text-gray-600">Sign in to continue to Moratwe</p>
+        </div>
+
+        {% if form.errors %}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <p class="font-bold">Please correct the errors below:</p>
+            {% for field in form %}
+                {% for error in field.errors %}
+                <p class="text-sm">{{ field.label }}: {{ error }}</p>
+                {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+            <p class="text-sm">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            
+            <div class="mb-4">
+                <label for="{{ form.username.id_for_label }}" class="block text-gray-700 font-medium mb-2">{{ form.username.label }}</label>
+                {{ form.username }}
+                {% if form.username.help_text %}
+                <p class="text-xs text-gray-500 mt-1">{{ form.username.help_text }}</p>
+                {% endif %}
+            </div>
+            
+            <div class="mb-6">
+                <label for="{{ form.password.id_for_label }}" class="block text-gray-700 font-medium mb-2">{{ form.password.label }}</label>
+                {{ form.password }}
+            </div>
+            
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center">
+                    <input type="checkbox" id="remember" name="remember" class="h-4 w-4 text-primary focus:ring-primary">
+                    <label for="remember" class="ml-2 block text-sm text-gray-700">Remember me</label>
+                </div>
+                <a href="{% url 'password_reset' %}" class="text-sm text-primary hover:text-primary-dark">Forgot your password?</a>
+            </div>
+            
+            {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
+            
+            <button type="submit" class="w-full bg-primary hover:bg-primary-dark text-white font-medium py-3 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200">
+                Sign In
+            </button>
+        </form>
+        
+        <div class="text-center mt-6">
+            <p class="text-gray-600">Don't have an account? <a href="/admin/" class="text-primary hover:text-primary-dark">Contact your administrator</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %} 

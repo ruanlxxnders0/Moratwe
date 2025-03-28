@@ -99,6 +99,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom user model
 AUTH_USER_MODEL = 'users.CustomUser'
 
+# Authentication backends
+# The EmailBackend is a custom backend that allows case-insensitive login using email address
+# Django tries each backend in order until one of them successfully authenticates the user
+# We include both our custom backend and the default ModelBackend for compatibility
+AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Login/Logout URLs
+LOGIN_REDIRECT_URL = '/events/'  # Redirect to events page after login
+LOGOUT_REDIRECT_URL = '/'        # Redirect to home page after logout
+LOGIN_URL = '/accounts/login/'   # Default login page URL
+
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

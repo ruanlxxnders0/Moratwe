@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Logged Out | Moratwe{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center py-12 px-4">
+    <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                </svg>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">You've Been Logged Out</h2>
+            <p class="text-gray-600">Thank you for using Moratwe. You have been successfully logged out.</p>
+        </div>
+        
+        <div class="text-center">
+            <a href="{% url 'login' %}" class="inline-block bg-primary hover:bg-primary-dark text-white font-medium py-3 px-6 rounded focus:outline-none focus:shadow-outline transition duration-200">
+                Log In Again
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

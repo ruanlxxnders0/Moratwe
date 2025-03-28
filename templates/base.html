@@ -5,16 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Moratwe{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            light: '#8e68ff',
+                            DEFAULT: '#6941e1',
+                            dark: '#5832c2',
+                        },
+                        secondary: {
+                            light: '#5ecdd8',
+                            DEFAULT: '#36bbc8',
+                            dark: '#2a9ca8',
+                        },
+                        accent: {
+                            light: '#ffd876',
+                            DEFAULT: '#ffc82c',
+                            dark: '#e0a800',
+                        }
+                    },
+                    fontFamily: {
+                        'poppins': ['Poppins', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+    </style>
     {% block extra_head %}{% endblock %}
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col bg-gray-50">
     <header class="bg-white shadow">
         <nav class="container mx-auto px-4 py-4">
             <div class="flex justify-between items-center">
-                <a href="/" class="text-xl font-bold text-gray-800">Moratwe</a>
-                <div class="space-x-4">
-                    <a href="/" class="text-gray-600 hover:text-gray-900">Home</a>
-                    <a href="/admin/" class="text-gray-600 hover:text-gray-900">Admin</a>
+                <a href="/" class="flex items-center space-x-2">
+                    <img src="{{ SITE_URL|default:'' }}/static/images/logo_transparent.png" alt="Moratwe" class="h-10">
+                    <span class="text-xl font-bold text-primary">Moratwe</span>
+                </a>
+                <div class="hidden md:flex space-x-6">
+                    <a href="/" class="text-gray-600 hover:text-primary font-medium">Home</a>
+                    <a href="/#features" class="text-gray-600 hover:text-primary font-medium">Features</a>
+                    <a href="/#app" class="text-gray-600 hover:text-primary font-medium">Mobile App</a>
+                    <a href="/events/" class="text-gray-600 hover:text-primary font-medium">Events</a>
+                </div>
+                <div class="flex space-x-4">
+                    {% if user.is_authenticated %}
+                        
+                        <form method="post" action="{% url 'logout' %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="text-gray-600 hover:text-primary py-2 px-4 transition duration-200">
+                                Logout
+                            </button>
+                        </form>
+                    {% else %}
+                        <a href="#contact" class="text-gray-600 hover:text-primary py-2 px-4 transition duration-200">
+                            Contact Us
+                        </a>
+                        <a href="{% url 'login' %}" class="bg-primary hover:bg-primary-dark text-white py-2 px-4 rounded transition duration-200">
+                            Login
+                        </a>
+                    {% endif %}
                 </div>
             </div>
         </nav>
@@ -24,18 +81,28 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-gray-800 text-white mt-8">
-        <div class="container mx-auto px-4 py-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <footer class="bg-gray-800 text-white">
+        <div class="container mx-auto px-4 py-10">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <div>
                     <h3 class="text-lg font-semibold mb-4">About Moratwe</h3>
-                    <p class="text-gray-300">Your trusted platform for event management and RSVPs.</p>
+                    <p class="text-gray-300">Your trusted platform for event management and RSVPs. Connect, Engage, and Attend with our comprehensive solution.</p>
                 </div>
                 <div>
                     <h3 class="text-lg font-semibold mb-4">Quick Links</h3>
                     <ul class="space-y-2">
                         <li><a href="/" class="text-gray-300 hover:text-white">Home</a></li>
-                        <li><a href="/admin/" class="text-gray-300 hover:text-white">Admin</a></li>
+                        <li><a href="/#features" class="text-gray-300 hover:text-white">Features</a></li>
+                        <li><a href="/#app" class="text-gray-300 hover:text-white">Mobile App</a></li>
+                        <li><a href="/#contact" class="text-gray-300 hover:text-white">Contact</a></li>
+                        <li><a href="/events/" class="text-gray-300 hover:text-white">Events</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Download</h3>
+                    <ul class="space-y-2">
+                        <li><a href="https://apps.apple.com/app/moratwe" class="text-gray-300 hover:text-white">iOS App</a></li>
+                        <li><a href="https://play.google.com/store/apps/details?id=com.moratwe.app" class="text-gray-300 hover:text-white">Android App</a></li>
                     </ul>
                 </div>
                 <div>
