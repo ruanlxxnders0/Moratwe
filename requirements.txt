@@ -1,10 +1,10 @@
 amqp==5.3.1
 asgiref==3.8.1
-awsebcli==3.21.0
+awsebcli
 billiard==4.2.1
 blessed==1.20.0
 boto3==1.37.18
-botocore==1.37.18
+botocore
 celery==5.4.0
 cement==2.10.14
 certifi==2025.1.31
