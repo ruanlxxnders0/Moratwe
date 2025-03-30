@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.core.cache import cache
 from django.utils.translation import gettext as _
 from django.http import Http404
-from .models import Event, RSVP, EmailTemplate, EventInvitation, InviteeRSVP
+from .models import Event, RSVP, EmailTemplate, EventInvitation, InviteeRSVP, BreakawaySession
 from users.models import CustomUser
 from django.contrib.auth import login
 from django.utils import timezone
@@ -308,7 +308,67 @@ def update_rsvp(request, event_id):
     if status == 'accepted':
         send_confirmation_email(request.user, event)
         messages.success(request, _("Thank you for accepting the invitation!"))
+        
+        # If this is a new acceptance or they're changing from declined to accepted,
+        # redirect to the edit RSVP form for dietary requirements
+        if created or rsvp.dietary_requirements == '':
+            messages.info(request, _("Please provide your dietary requirements and preferences."))
+            return redirect('events:edit_rsvp', event_id=event_id)
     else:
         messages.info(request, _("Thank you for letting us know you can't make it."))
     
     return redirect('events:event_detail', event_id=event_id)
+
+
+@login_required
+def edit_rsvp(request, event_id):
+    """Edit detailed RSVP information including dietary requirements."""
+    event = get_object_or_404(Event, id=event_id)
+    
+    # Check if the user has already accepted the invitation
+    try:
+        rsvp = RSVP.objects.get(event=event, user=request.user)
+        if rsvp.status != 'accepted':
+            messages.error(request, _("You must accept the invitation before providing additional details."))
+            return redirect('events:event_detail', event_id=event.id)
+    except RSVP.DoesNotExist:
+        messages.error(request, _("You haven't RSVP'd to this event yet."))
+        return redirect('events:event_detail', event_id=event.id)
+    
+    if request.method == 'POST':
+        # Process form data
+        number_of_guests = int(request.POST.get('number_of_guests', 0))
+        notes = request.POST.get('notes', '')
+        
+        # Handle dietary requirements from dropdown or text field
+        dietary_select = request.POST.get('dietary_requirements_select', '')
+        if dietary_select == 'other':
+            dietary_requirements = request.POST.get('dietary_requirements', '')
+        else:
+            dietary_requirements = dietary_select
+        
+        # Update RSVP with additional information
+        rsvp.number_of_guests = number_of_guests
+        rsvp.dietary_requirements = dietary_requirements
+        rsvp.notes = notes
+        rsvp.save()
+        
+        # Handle breakaway session selection
+        if event.breakaways.exists():
+            # Clear existing selections
+            rsvp.selected_sessions.clear()
+            
+            # Add new selections
+            selected_session_ids = request.POST.getlist('selected_sessions')
+            if selected_session_ids:
+                sessions = BreakawaySession.objects.filter(id__in=selected_session_ids, event=event)
+                rsvp.selected_sessions.add(*sessions)
+        
+        messages.success(request, _("Your RSVP details have been updated."))
+        return redirect('events:event_detail', event_id=event.id)
+    
+    return render(request, 'events/edit_rsvp.html', {
+        'event': event,
+        'rsvp': rsvp,
+        'SITE_URL': settings.SITE_URL.rstrip('/')
+    })

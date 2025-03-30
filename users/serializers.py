@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+import re
 
 User = get_user_model()
 
@@ -35,6 +36,29 @@ class UserCreateSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'email', 'first_name', 'last_name', 'phone_number', 'is_organizer', 'password', 'password_confirm')
         read_only_fields = ('id',)
+    
+    def validate_phone_number(self, value):
+        """
+        Clean and validate phone number format.
+        """
+        if value:
+            # Remove any non-digit characters except for leading +
+            if value.startswith('+'):
+                # Keep the leading + sign
+                cleaned_number = '+' + re.sub(r'\D', '', value[1:])
+            else:
+                cleaned_number = re.sub(r'\D', '', value)
+            
+            # Add + prefix for international format if it looks like an international number
+            if not cleaned_number.startswith('+') and len(cleaned_number) > 10:
+                cleaned_number = '+' + cleaned_number
+                
+            # Validate length
+            if not cleaned_number.startswith('+') and len(cleaned_number) < 10:
+                raise serializers.ValidationError("Phone number must be at least 10 digits.")
+            
+            return cleaned_number
+        return value
     
     def validate(self, attrs):
         """

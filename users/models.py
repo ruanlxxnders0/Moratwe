@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+import re
 
 
 class CustomUserManager(BaseUserManager):
@@ -44,7 +45,7 @@ class CustomUser(AbstractUser):
     email = models.EmailField(_('email address'), unique=True)
     first_name = models.CharField(_('first name'), max_length=30, blank=True)
     last_name = models.CharField(_('last name'), max_length=30, blank=True)
-    phone_number = models.CharField(_('phone number'), max_length=15, unique=True)
+    phone_number = models.CharField(_('phone number'), max_length=30, unique=True)
     date_joined = models.DateTimeField(_('date joined'), auto_now_add=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -68,3 +69,24 @@ class CustomUser(AbstractUser):
     def get_short_name(self):
         """Return the short name for the user."""
         return self.first_name
+        
+    def clean(self):
+        super().clean()
+        # Clean phone number if provided
+        if self.phone_number:
+            # Remove any non-digit characters except for leading +
+            if self.phone_number.startswith('+'):
+                # Keep the leading + sign
+                cleaned_number = '+' + re.sub(r'\D', '', self.phone_number[1:])
+            else:
+                cleaned_number = re.sub(r'\D', '', self.phone_number)
+            
+            # Add + prefix for international format if it looks like an international number
+            if not cleaned_number.startswith('+') and len(cleaned_number) > 10:
+                cleaned_number = '+' + cleaned_number
+                
+            self.phone_number = cleaned_number
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)

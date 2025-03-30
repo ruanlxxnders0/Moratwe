@@ -1,0 +1,23 @@
+{% extends 'admin/change_form.html' %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+  {% if show_rsvp_dashboard %}
+  <li>
+    <a href="{{ rsvp_dashboard_url }}" class="historylink">
+      {% trans "RSVP Dashboard" %}
+    </a>
+  </li>
+  <li>
+    <a href="{{ batch_process_url }}" class="historylink">
+      {% trans "Batch Process RSVPs" %}
+    </a>
+  </li>
+  <li>
+    <a href="{{ batch_invitations_url }}" class="historylink">
+      {% trans "Batch Send Invitations" %}
+    </a>
+  </li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %} 

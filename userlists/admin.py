@@ -8,6 +8,7 @@ from .models import UserList, Invitee
 import pandas as pd
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+import re
 
 class InviteeInline(admin.TabularInline):
     model = Invitee
@@ -91,13 +92,35 @@ class UserListAdmin(admin.ModelAdmin):
                             errors.append(f'Row {index + 2}: Email {email} already exists in this list')
                             continue
 
+                        # Clean up the data before saving
+                        mobile = ''
+                        if mobile_col and str(row[mobile_col]).strip():
+                            mobile_raw = str(row[mobile_col]).strip()
+                            
+                            # Handle common Excel formatting issues with numbers
+                            if isinstance(mobile_raw, float):
+                                # Convert scientific notation to string
+                                mobile_raw = str(int(mobile_raw))
+                            
+                            # Remove any potentially harmful characters but preserve +
+                            if mobile_raw.startswith('+'):
+                                mobile = '+' + re.sub(r'\D', '', mobile_raw[1:])
+                            else:
+                                mobile = re.sub(r'\D', '', mobile_raw)
+                            
+                            # Add + prefix for international format if it's long enough
+                            if not mobile.startswith('+') and len(mobile) > 10:
+                                # This might be a number with country code but missing +
+                                # Assuming numbers like these are international
+                                mobile = '+' + mobile
+                        
                         # Create invitee with cleaned data
                         invitee = Invitee(
                             user_list=user_list,
                             email=email,
                             first_name=str(row[first_name_col]).strip() if first_name_col else '',
                             last_name=str(row[last_name_col]).strip() if last_name_col else '',
-                            mobile_number=str(row[mobile_col]).strip() if mobile_col else ''
+                            mobile_number=mobile
                         )
                         invitee.save()
                         success_count += 1

@@ -24,7 +24,7 @@ class Invitee(models.Model):
     email = models.EmailField(validators=[EmailValidator()])
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
-    mobile_number = models.CharField(max_length=20, blank=True)
+    mobile_number = models.CharField(max_length=30, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -38,10 +38,19 @@ class Invitee(models.Model):
     def clean(self):
         # Validate mobile number format if provided
         if self.mobile_number:
-            # Remove any non-digit characters
-            cleaned_number = re.sub(r'\D', '', self.mobile_number)
-            if not cleaned_number.isdigit() or len(cleaned_number) < 10:
-                raise ValidationError({'mobile_number': 'Please enter a valid mobile number'})
+            # Remove any non-digit characters except for leading +
+            if self.mobile_number.startswith('+'):
+                # Keep the leading + sign
+                cleaned_number = '+' + re.sub(r'\D', '', self.mobile_number[1:])
+            else:
+                cleaned_number = re.sub(r'\D', '', self.mobile_number)
+            
+            # Only validate length if we have a number
+            if cleaned_number and not cleaned_number.startswith('+') and len(cleaned_number) < 10:
+                raise ValidationError({'mobile_number': 'Please enter a valid mobile number (at least 10 digits)'})
+            
+            # Update the field with the cleaned version
+            self.mobile_number = cleaned_number
 
     def save(self, *args, **kwargs):
         self.clean()

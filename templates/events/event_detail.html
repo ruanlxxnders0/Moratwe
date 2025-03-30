@@ -59,7 +59,27 @@
                                         Decline
                                     </button>
                                 </form>
+                                {% if user_rsvp.status == 'accepted' %}
+                                <a href="{% url 'events:edit_rsvp' event.id %}" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">
+                                    Edit Details
+                                </a>
+                                {% endif %}
                             </div>
+                            
+                            {% if user_rsvp.status == 'accepted' %}
+                                {% if user_rsvp.dietary_requirements %}
+                                <div class="mt-4">
+                                    <h3 class="text-lg font-semibold">Dietary Requirements</h3>
+                                    <p>{{ user_rsvp.dietary_requirements }}</p>
+                                </div>
+                                {% endif %}
+                                
+                                {% if user_rsvp.number_of_guests > 0 %}
+                                <div class="mt-2">
+                                    <p>You're bringing {{ user_rsvp.number_of_guests }} additional guest{{ user_rsvp.number_of_guests|pluralize }}</p>
+                                </div>
+                                {% endif %}
+                            {% endif %}
                         </div>
                         
                         {% if user_rsvp.qr_code and user_rsvp.status == 'accepted' %}

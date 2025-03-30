@@ -1,0 +1,467 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Base Styles */
+    .dashboard-container {
+        margin: 20px 0;
+    }
+    
+    /* Filter Container */
+    .filters-container {
+        background-color: var(--body-bg);
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        border: 1px solid var(--border-color);
+    }
+    
+    /* Table Styles */
+    .task-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .task-table th {
+        background-color: var(--primary);
+        color: var(--primary-fg);
+        padding: 10px;
+        text-align: left;
+    }
+    .task-table td {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    /* Status Badges */
+    .task-status {
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-weight: bold;
+        display: inline-block;
+        min-width: 80px;
+        text-align: center;
+    }
+    .task-status-running {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+    .task-status-pause {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    .task-status-complete {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+    .task-status-stopped {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+    .task-status-error {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+    
+    /* Action Buttons */
+    .action-button {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 4px;
+        background-color: var(--primary);
+        color: var(--primary-fg);
+        text-decoration: none;
+        margin-right: 5px;
+        border: none;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    .action-button:hover {
+        background-color: var(--primary-dark);
+        color: var(--primary-fg);
+    }
+    .action-button.pause {
+        background-color: #f59e0b;
+        color: white;
+    }
+    .action-button.pause:hover {
+        background-color: #d97706;
+        color: white;
+    }
+    .action-button.resume {
+        background-color: #10b981;
+        color: white;
+    }
+    .action-button.resume:hover {
+        background-color: #059669;
+        color: white;
+    }
+    .action-button.stop {
+        background-color: #ef4444;
+        color: white;
+    }
+    .action-button.stop:hover {
+        background-color: #dc2626;
+        color: white;
+    }
+    .action-button.disabled {
+        background-color: #cbd5e1;
+        color: #64748b;
+        cursor: not-allowed;
+    }
+    .action-button.disabled:hover {
+        background-color: #cbd5e1;
+        color: #64748b;
+    }
+    
+    /* Progress Bar */
+    .progress-container {
+        width: 100%;
+        background-color: var(--body-quiet-color);
+        border-radius: 9999px;
+        height: 10px;
+        overflow: hidden;
+    }
+    .progress-bar {
+        height: 100%;
+        background-color: #10b981;
+        border-radius: 9999px;
+    }
+    
+    /* Form Elements */
+    .filter-group {
+        display: inline-block;
+        margin-right: 15px;
+        margin-bottom: 10px;
+    }
+    .filter-group label {
+        margin-right: 5px;
+        font-weight: bold;
+        color: var(--body-fg);
+    }
+    .filter-group select, 
+    .filter-group input {
+        padding: 5px;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+        background-color: var(--body-bg);
+        color: var(--body-fg);
+    }
+    .filter-actions {
+        margin-top: 10px;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        padding: 30px;
+        text-align: center;
+        background-color: var(--body-bg);
+        border-radius: 5px;
+        margin: 20px 0;
+        border: 1px solid var(--border-color);
+        color: var(--body-fg);
+    }
+    
+    /* Stats Cards */
+    .stats-row {
+        display: flex;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .stat-card {
+        background-color: var(--body-bg);
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 15px;
+        margin-right: 15px;
+        margin-bottom: 15px;
+        min-width: 150px;
+        flex: 1;
+        border: 1px solid var(--border-color);
+    }
+    .stat-card h3 {
+        font-size: 14px;
+        color: var(--body-quiet-color);
+        margin: 0 0 5px 0;
+    }
+    .stat-card .value {
+        font-size: 24px;
+        font-weight: bold;
+        color: var(--body-fg);
+    }
+    
+    /* Additional Info */
+    .additional-info {
+        margin-top: 10px;
+        color: var(--body-quiet-color);
+        font-size: 12px;
+    }
+    
+    /* Refresh Button */
+    .refresh-button {
+        float: right;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <!-- Stats Overview -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <h3>Total Tasks</h3>
+            <div class="value">{{ tasks|length }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Running Tasks</h3>
+            <div class="value">{{ running_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Paused Tasks</h3>
+            <div class="value">{{ paused_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Completed Tasks</h3>
+            <div class="value">{{ completed_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Errors</h3>
+            <div class="value">{{ error_count }}</div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="filters-container">
+        <form method="get">
+            <div class="filter-group">
+                <label for="task_type">Task Type:</label>
+                <select name="task_type" id="task_type">
+                    <option value="">All Types</option>
+                    {% for code, name in task_types.items %}
+                    <option value="{{ code }}" {% if current_filters.task_type == code %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="status">Status:</label>
+                <select name="status" id="status">
+                    <option value="">All Statuses</option>
+                    {% for code, name in statuses.items %}
+                    <option value="{{ code }}" {% if current_filters.status == code %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="event_id">Event:</label>
+                <select name="event_id" id="event_id">
+                    <option value="">All Events</option>
+                    {% for event in events %}
+                    <option value="{{ event.id }}" {% if current_filters.event_id == event.id|stringformat:'i' %}selected{% endif %}>{{ event.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filter-actions">
+                <button type="submit" class="action-button">Apply Filters</button>
+                <a href="{% url 'admin:batch-tasks-dashboard' %}" class="action-button">Reset</a>
+            </div>
+        </form>
+    </div>
+    
+    <button id="refresh-button" class="action-button refresh-button">Refresh Data</button>
+    
+    <!-- Tasks Table -->
+    <div class="dashboard-container">
+        {% if tasks %}
+        <table class="task-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Event</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Processed</th>
+                    <th>Actions</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task_info in tasks %}
+                <tr data-task-id="{{ task_info.task.task_id }}" data-status-url="{{ task_info.status_url }}" data-task-type="{{ task_info.task.task_type }}">
+                    <td>{{ task_info.task.get_task_type_display }}</td>
+                    <td>{% if task_info.event %}{{ task_info.event.title }}{% else %}Unknown Event{% endif %}</td>
+                    <td>{{ task_info.task.created_at }} <span class="additional-info">({{ task_info.age_minutes }} minutes ago)</span></td>
+                    <td>
+                        <span class="task-status task-status-{{ task_info.task.status }}">
+                            {{ task_info.task.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: {{ task_info.task.progress }}%;"></div>
+                        </div>
+                        <div class="additional-info">{{ task_info.task.progress }}%</div>
+                    </td>
+                    <td>
+                        {{ task_info.task.processed }} / {{ task_info.task.total }}
+                        {% if task_info.task.emails_sent %}
+                        <div class="additional-info">{{ task_info.task.emails_sent }} emails sent</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="task-actions">
+                            {% if task_info.can_pause %}
+                            <button class="action-button pause" data-action="pause" data-url="{{ task_info.control_urls.pause }}">Pause</button>
+                            {% else %}
+                            <button class="action-button disabled">Pause</button>
+                            {% endif %}
+                            
+                            {% if task_info.can_resume %}
+                            <button class="action-button resume" data-action="resume" data-url="{{ task_info.control_urls.resume }}">Resume</button>
+                            {% else %}
+                            <button class="action-button disabled">Resume</button>
+                            {% endif %}
+                            
+                            {% if task_info.can_stop %}
+                            <button class="action-button stop" data-action="stop" data-url="{{ task_info.control_urls.stop }}">Stop</button>
+                            {% else %}
+                            <button class="action-button disabled">Stop</button>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>{{ task_info.task.message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <h2>No tasks found</h2>
+            <p>There are no batch tasks matching your filters. Try changing your filter criteria or start a new batch task.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to handle task control actions
+        function handleControlAction(button) {
+            const url = button.getAttribute('data-url');
+            const action = button.getAttribute('data-action');
+            
+            if (!url || !action) return;
+            
+            // Disable button while processing
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            
+            // Send request to control endpoint
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`${action} command response:`, data);
+                    
+                    if (data.success) {
+                        // Update button states immediately
+                        const row = button.closest('tr');
+                        const allButtons = row.querySelectorAll('.action-button:not(.disabled)');
+                        allButtons.forEach(btn => {
+                            btn.classList.add('disabled');
+                            btn.disabled = true;
+                        });
+                        
+                        // Refresh after a short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        alert(`Error: ${data.error || 'An unknown error occurred'}`);
+                        button.disabled = false;
+                        button.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error sending ${action} command:`, error);
+                    alert(`Error: ${error.message}`);
+                    button.disabled = false;
+                    button.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+                });
+        }
+        
+        // Attach control action handlers
+        document.querySelectorAll('.action-button[data-action]').forEach(button => {
+            button.addEventListener('click', function() {
+                handleControlAction(this);
+            });
+        });
+        
+        // Auto-refresh running tasks
+        let runningTasks = document.querySelectorAll('tr[data-task-id][data-status-url]');
+        
+        function updateTaskStatus(taskRow) {
+            const taskId = taskRow.getAttribute('data-task-id');
+            const statusUrl = taskRow.getAttribute('data-status-url');
+            
+            fetch(statusUrl)
+                .then(response => response.json())
+                .then(data => {
+                    // Update progress
+                    const progressBar = taskRow.querySelector('.progress-bar');
+                    const progressText = taskRow.querySelector('.progress-container + .additional-info');
+                    if (progressBar && progressText) {
+                        progressBar.style.width = `${data.progress || 0}%`;
+                        progressText.textContent = `${data.progress || 0}%`;
+                    }
+                    
+                    // Update processed count
+                    const processedCell = taskRow.querySelector('td:nth-child(6)');
+                    if (processedCell) {
+                        processedCell.innerHTML = `${data.processed || 0} / ${data.total || 0}`;
+                        if (data.emails_sent) {
+                            processedCell.innerHTML += `<div class="additional-info">${data.emails_sent} emails sent</div>`;
+                        }
+                    }
+                    
+                    // Update status if changed
+                    const statusCell = taskRow.querySelector('td:nth-child(4) .task-status');
+                    if (statusCell && data.status && statusCell.textContent.trim().toLowerCase() !== data.status) {
+                        statusCell.className = `task-status task-status-${data.status}`;
+                        statusCell.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                        
+                        // We should refresh the page if status changed
+                        window.location.reload();
+                    }
+                    
+                    // Update message
+                    const messageCell = taskRow.querySelector('td:nth-child(8)');
+                    if (messageCell && data.message) {
+                        messageCell.textContent = data.message;
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error updating task ${taskId}:`, error);
+                });
+        }
+        
+        // Initial update of running tasks
+        runningTasks.forEach(updateTaskStatus);
+        
+        // Set up periodic updates for running tasks
+        setInterval(() => {
+            runningTasks = document.querySelectorAll('tr[data-task-id][data-status-url]');
+            runningTasks.forEach(updateTaskStatus);
+        }, 5000); // Update every 5 seconds
+        
+        // Refresh button handler
+        document.getElementById('refresh-button').addEventListener('click', function() {
+            window.location.reload();
+        });
+    });
+</script>
+{% endblock %} 

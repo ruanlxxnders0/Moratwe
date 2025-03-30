@@ -1,0 +1,32 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools %}
+{% if change %}{% if not is_popup %}
+<ul class="object-tools">
+  {% block object-tools-items %}
+  {{ block.super }}
+  {% if show_rsvp_dashboard %}
+  <li>
+    <a href="{{ rsvp_dashboard_url }}" class="historylink">{% trans "RSVP Dashboard" %}</a>
+  </li>
+  {% endif %}
+  {% if batch_process_url %}
+  <li>
+    <a href="{{ batch_process_url }}" class="historylink">{% trans "Batch Process RSVPs" %}</a>
+  </li>
+  {% endif %}
+  {% if batch_invitations_url %}
+  <li>
+    <a href="{{ batch_invitations_url }}" class="historylink">{% trans "Batch Process Invitations" %}</a>
+  </li>
+  {% endif %}
+  {% if batch_tasks_dashboard_url %}
+  <li>
+    <a href="{{ batch_tasks_dashboard_url }}" class="historylink">{% trans "Batch Tasks Dashboard" %}</a>
+  </li>
+  {% endif %}
+  {% endblock %}
+</ul>
+{% endif %}{% endif %}
+{% endblock %} 

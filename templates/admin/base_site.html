@@ -1,0 +1,21 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Fix for dropdown height in admin */
+    select {
+        height: auto !important;
+        min-height: 38px !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        line-height: 1.5 !important;
+    }
+    /* Fix for dropdown option height */
+    select option {
+        padding: 0.5rem !important;
+        line-height: 1.5 !important;
+    }
+</style>
+{% endblock %} 

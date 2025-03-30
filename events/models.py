@@ -1,9 +1,18 @@
+import uuid
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from users.models import CustomUser
 from django.utils import timezone
-import uuid
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.urls import reverse
+import qrcode
+import qrcode.image.svg
+from io import BytesIO
+import base64
+
+User = get_user_model()
 
 
 class EmailTemplate(models.Model):
@@ -231,6 +240,8 @@ class InviteeRSVP(models.Model):
     token = models.UUIDField(_('token'), null=True, blank=True, unique=True)
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
+    email_sent = models.BooleanField(_('email sent'), default=False, help_text=_('Whether an invitation email has been sent'))
+    email_sent_at = models.DateTimeField(_('email sent at'), null=True, blank=True)
 
     class Meta:
         unique_together = ['invitee', 'event']
@@ -240,3 +251,84 @@ class InviteeRSVP(models.Model):
 
     def __str__(self):
         return f"{self.invitee.email} - {self.event.title} ({self.get_status_display()})"
+
+
+class TaskStatus(models.Model):
+    """Model to track background task status and progress."""
+    
+    STATUS_CHOICES = (
+        ('running', _('Running')),
+        ('pause', _('Paused')),
+        ('complete', _('Complete')),
+        ('stopped', _('Stopped')),
+        ('error', _('Error')),
+    )
+    
+    TASK_TYPES = (
+        ('invitation', _('Send Invitations')),
+        ('rsvp', _('Process RSVPs')),
+    )
+    
+    task_id = models.CharField(max_length=36, primary_key=True)
+    task_type = models.CharField(max_length=20, choices=TASK_TYPES)
+    event_id = models.IntegerField()
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='running')
+    progress = models.IntegerField(default=0)
+    processed = models.IntegerField(default=0)
+    total = models.IntegerField(default=0)
+    offset = models.IntegerField(default=0)
+    emails_sent = models.IntegerField(default=0)
+    failed = models.IntegerField(default=0)
+    
+    message = models.TextField(blank=True)
+    error = models.TextField(blank=True)
+    
+    # Additional data stored as JSON
+    additional_data = models.JSONField(blank=True, default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = _('Task Status')
+        verbose_name_plural = _('Task Statuses')
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"{self.get_task_type_display()} - {self.get_status_display()} ({self.task_id})"
+        
+    @classmethod
+    def create_task(cls, task_id, task_type, event_id, total_items=0):
+        """Create a new task status record."""
+        task = cls(
+            task_id=task_id,
+            task_type=task_type,
+            event_id=event_id,
+            status='running',
+            total=total_items,
+            message=f'Task started with {total_items} items to process'
+        )
+        task.save()
+        return task
+    
+    @classmethod
+    def get_task(cls, task_id):
+        """Get a task by ID."""
+        try:
+            return cls.objects.get(task_id=task_id)
+        except cls.DoesNotExist:
+            return None
+    
+    @classmethod
+    def update_task(cls, task_id, **kwargs):
+        """Update a task's status and progress."""
+        try:
+            task = cls.objects.get(task_id=task_id)
+            for key, value in kwargs.items():
+                setattr(task, key, value)
+            task.updated_at = timezone.now()
+            task.save()
+            return task
+        except cls.DoesNotExist:
+            return None

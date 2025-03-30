@@ -1,0 +1,389 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n admin_urls %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<style>
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background-color: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        text-align: center;
+    }
+    .stat-card__title {
+        color: #666;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card__value {
+        color: #333;
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+    }
+    .stat-card__subtitle {
+        color: #888;
+        font-size: 0.875rem;
+    }
+    .chart-container {
+        background-color: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .chart-title {
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+        color: #333;
+    }
+    .chart-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+    }
+    .chart-wrapper {
+        position: relative;
+        height: 250px;
+    }
+    .action-button {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        background-color: #79aec8;
+        color: white;
+        text-decoration: none;
+        margin-right: 0.5rem;
+        transition: background-color 0.2s;
+    }
+    .action-button:hover {
+        background-color: #609ab6;
+    }
+    .action-button--green {
+        background-color: #3bbc7e;
+    }
+    .action-button--green:hover {
+        background-color: #2d995f;
+    }
+    .action-container {
+        margin-bottom: 1.5rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    th {
+        background-color: #f5f5f5;
+        font-weight: bold;
+    }
+    .progress-bar {
+        width: 100%;
+        background-color: #eee;
+        border-radius: 9999px;
+        height: 0.75rem;
+        overflow: hidden;
+    }
+    .progress-bar__fill {
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.3s;
+    }
+    .progress-bar__fill--green {
+        background-color: #3bbc7e;
+    }
+    .progress-bar__fill--orange {
+        background-color: #f59e0b;
+    }
+    .progress-bar__fill--red {
+        background-color: #ef4444;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: white;
+    }
+    .badge--green {
+        background-color: #3bbc7e;
+    }
+    .badge--orange {
+        background-color: #f59e0b;
+    }
+    .badge--red {
+        background-color: #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="action-container">
+        <a href="{% url 'admin:events_event_change' event.id %}" class="action-button">
+            {% trans "Back to Event" %}
+        </a>
+        <a href="{{ rsvp_list_url }}" class="action-button">
+            {% trans "Manage User RSVPs" %}
+        </a>
+        <a href="{{ invitee_rsvp_list_url }}" class="action-button">
+            {% trans "Manage Invitee RSVPs" %}
+        </a>
+    </div>
+    
+    <!-- Event Details Summary -->
+    <div class="module">
+        <h2>Event Summary</h2>
+        <p>
+            <strong>{% trans "Date" %}:</strong> {{ event.date|date:"F j, Y, P" }}<br>
+            <strong>{% trans "Location" %}:</strong> {{ event.location }}<br>
+            <strong>{% trans "Status" %}:</strong> 
+            {% if event.is_active %}
+                <span class="badge badge--green">{% trans "Active" %}</span>
+            {% else %}
+                <span class="badge badge--red">{% trans "Inactive" %}</span>
+            {% endif %}
+        </p>
+    </div>
+    
+    <!-- RSVP Statistics -->
+    <div class="module">
+        <h2>{% trans "RSVP Statistics" %}</h2>
+        
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Total Invitations" %}</div>
+                <div class="stat-card__value">{{ invitation_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Accepted" %}</div>
+                <div class="stat-card__value">{{ accepted_count }}</div>
+                <div class="stat-card__subtitle">
+                    {{ total_attendees }} {% trans "total with guests" %}
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Declined" %}</div>
+                <div class="stat-card__value">{{ declined_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Pending" %}</div>
+                <div class="stat-card__value">{{ pending_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Maybe" %}</div>
+                <div class="stat-card__value">{{ maybe_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Response Rate" %}</div>
+                <div class="stat-card__value">{{ response_rate|floatformat:1 }}%</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Checked In" %}</div>
+                <div class="stat-card__value">{{ checked_in_count }}</div>
+                <div class="stat-card__subtitle">
+                    {% if accepted_count > 0 %}
+                        {{ checked_in_count|floatformat:1 }}% of accepted
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Charts -->
+        <div class="chart-row">
+            <div class="chart-container">
+                <h3 class="chart-title">{% trans "RSVP Status Distribution" %}</h3>
+                <div class="chart-wrapper">
+                    <canvas id="rsvpStatusChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3 class="chart-title">{% trans "Check-in Progress" %}</h3>
+                <div class="chart-wrapper">
+                    <canvas id="checkInChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Breakaway Sessions -->
+    {% if session_stats %}
+    <div class="module">
+        <h2>{% trans "Breakaway Sessions" %}</h2>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>{% trans "Session" %}</th>
+                    <th>{% trans "Attendees" %}</th>
+                    <th>{% trans "Capacity" %}</th>
+                    <th>{% trans "Status" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for session in session_stats %}
+                <tr>
+                    <td>{{ session.title }}</td>
+                    <td>{{ session.attendee_count }}</td>
+                    <td>
+                        {% if session.capacity > 0 %}
+                            {{ session.attendee_count }} / {{ session.capacity }}
+                        {% else %}
+                            {{ session.attendee_count }} / ∞
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="progress-bar">
+                            {% if session.is_full %}
+                                <div class="progress-bar__fill progress-bar__fill--red" style="width: 100%"></div>
+                            {% elif session.capacity_pct > 80 %}
+                                <div class="progress-bar__fill progress-bar__fill--orange" style="width: {{ session.capacity_pct }}%"></div>
+                            {% elif session.capacity > 0 %}
+                                <div class="progress-bar__fill progress-bar__fill--green" style="width: {{ session.capacity_pct }}%"></div>
+                            {% else %}
+                                <div class="progress-bar__fill progress-bar__fill--green" style="width: 100%"></div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if session.is_full %}
+                            <span class="badge badge--red">{% trans "Full" %}</span>
+                        {% elif session.capacity_pct > 80 %}
+                            <span class="badge badge--orange">{% trans "Almost Full" %}</span>
+                        {% elif session.capacity > 0 %}
+                            <span class="badge badge--green">{% trans "Available" %}</span>
+                        {% else %}
+                            <span class="badge badge--green">{% trans "Unlimited" %}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    
+    <!-- Dietary Requirements -->
+    {% if dietary_requirements %}
+    <div class="module">
+        <h2>{% trans "Dietary Requirements" %}</h2>
+        
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold mb-2">Summary</h3>
+            <p>{{ dietary_requirements|length }} attendees have specified dietary requirements</p>
+            
+            <!-- Download as CSV button -->
+            <a href="{% url 'admin:export_dietary_requirements' event.id %}" class="action-button action-button--green mt-2">
+                {% trans "Export to CSV" %}
+            </a>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>{% trans "Email" %}</th>
+                    <th>{% trans "Name" %}</th>
+                    <th>{% trans "Requirements" %}</th>
+                    <th>{% trans "Guests" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for email, name, requirement, guests in dietary_requirements %}
+                <tr>
+                    <td>{{ email }}</td>
+                    <td>{{ name }}</td>
+                    <td>{{ requirement }}</td>
+                    <td>{{ guests }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // RSVP Status Distribution Chart
+        const statusCtx = document.getElementById('rsvpStatusChart').getContext('2d');
+        const statusChart = new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Accepted', 'Declined', 'Pending', 'Maybe'],
+                datasets: [{
+                    data: [{{ accepted_count }}, {{ declined_count }}, {{ pending_count }}, {{ maybe_count }}],
+                    backgroundColor: [
+                        '#3bbc7e',  // green
+                        '#ef4444',  // red
+                        '#94a3b8',  // gray
+                        '#f59e0b',  // orange
+                    ],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+        
+        // Check-in Progress Chart
+        const checkInCtx = document.getElementById('checkInChart').getContext('2d');
+        const checkInChart = new Chart(checkInCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Check-in Status'],
+                datasets: [
+                    {
+                        label: 'Checked In',
+                        data: [{{ checked_in_count }}],
+                        backgroundColor: '#3bbc7e',
+                    },
+                    {
+                        label: 'Not Checked In',
+                        data: [{{ accepted_count|default:0 }} - {{ checked_in_count|default:0 }}],
+                        backgroundColor: '#94a3b8',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %} 

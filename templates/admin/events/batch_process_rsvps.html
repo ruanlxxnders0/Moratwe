@@ -1,0 +1,423 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background-color: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        text-align: center;
+    }
+    .stat-card__title {
+        color: #666;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card__value {
+        color: #333;
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+    }
+    .action-button {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        background-color: #79aec8;
+        color: white;
+        text-decoration: none;
+        margin-right: 0.5rem;
+        transition: background-color 0.2s;
+        border: none;
+        cursor: pointer;
+    }
+    .action-button:hover {
+        background-color: #609ab6;
+    }
+    .action-button--green {
+        background-color: #3bbc7e;
+    }
+    .action-button--green:hover {
+        background-color: #2d995f;
+    }
+    .action-button--orange {
+        background-color: #f59e0b;
+    }
+    .action-button--orange:hover {
+        background-color: #d88706;
+    }
+    .action-button--red {
+        background-color: #ef4444;
+    }
+    .action-button--red:hover {
+        background-color: #dc2626;
+    }
+    .action-button--disabled {
+        background-color: #cbd5e1;
+        cursor: not-allowed;
+    }
+    .action-button--disabled:hover {
+        background-color: #cbd5e1;
+    }
+    .action-container {
+        margin-bottom: 1.5rem;
+    }
+    .form-row {
+        margin-bottom: 1rem;
+    }
+    .form-row label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 0.25rem;
+    }
+    /* Fix for dropdown height */
+    select.form-control {
+        height: auto;
+        min-height: 38px;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        line-height: 1.5;
+    }
+    /* Fix for dropdown option height */
+    select.form-control option {
+        padding: 0.5rem;
+        line-height: 1.5;
+    }
+    .progress-container {
+        margin: 2rem 0;
+    }
+    .progress-bar {
+        width: 100%;
+        background-color: #eee;
+        border-radius: 9999px;
+        height: 1.5rem;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+    .progress-bar__fill {
+        height: 100%;
+        background-color: #79aec8;
+        border-radius: 9999px;
+        transition: width 0.5s ease;
+    }
+    .batch-controls {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .control-panel {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 1rem;
+        background-color: #f8fafc;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid #e2e8f0;
+    }
+    .process-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+    .process-status--running {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+    .process-status--paused {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    .process-status--complete {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+    .process-status--stopped {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+    .process-status--error {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+    .hidden {
+        display: none;
+    }
+    .error-message {
+        background-color: #fee2e2;
+        border-left: 4px solid #ef4444;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-radius: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="action-container">
+        <a href="{% url 'admin:events_event_change' event.id %}" class="action-button">
+            {% trans "Back to Event" %}
+        </a>
+        <a href="{% url 'admin:rsvp-dashboard' event.id %}" class="action-button">
+            {% trans "RSVP Dashboard" %}
+        </a>
+    </div>
+    
+    <!-- Stats Overview -->
+    <div class="module">
+        <h2>{% trans "RSVP Summary" %}</h2>
+        
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Total Invitees" %}</div>
+                <div class="stat-card__value">{{ total_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Pending" %}</div>
+                <div class="stat-card__value">{{ pending_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Accepted" %}</div>
+                <div class="stat-card__value">{{ accepted_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Declined" %}</div>
+                <div class="stat-card__value">{{ declined_count }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Batch Processing Form -->
+    <div class="module">
+        <h2>{% trans "Batch Processing" %}</h2>
+        
+        {% if is_monitoring %}
+        <!-- Progress tracking mode -->
+        <div id="error-container" class="error-message hidden">
+            <p id="error-message"></p>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div id="progress-bar-fill" class="progress-bar__fill" style="width: 0%"></div>
+            </div>
+            <p>
+                <span id="processed-count">0</span> {% trans "of" %} <span id="total-count">0</span> {% trans "invitees processed" %}
+                (<span id="progress-percent">0</span>% {% trans "complete" %})
+            </p>
+            
+            <div class="control-panel">
+                <div>
+                    <span id="process-status" class="process-status process-status--running">{% trans "Running" %}</span>
+                </div>
+                <div>
+                    <button id="pause-button" class="action-button action-button--orange">{% trans "Pause" %}</button>
+                    <button id="resume-button" class="action-button action-button--green hidden">{% trans "Resume" %}</button>
+                    <button id="stop-button" class="action-button action-button--red">{% trans "Stop" %}</button>
+                </div>
+            </div>
+            
+            <div id="completion-actions" class="batch-controls hidden">
+                <a href="{% url 'admin:batch-process-rsvps' event.id %}" class="action-button">
+                    {% trans "Start a New Batch" %}
+                </a>
+                <a href="{% url 'admin:events_event_change' event.id %}" class="action-button">
+                    {% trans "Return to Event" %}
+                </a>
+            </div>
+        </div>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const progressBarFill = document.getElementById('progress-bar-fill');
+                const processedCount = document.getElementById('processed-count');
+                const totalCount = document.getElementById('total-count');
+                const progressPercent = document.getElementById('progress-percent');
+                const processStatus = document.getElementById('process-status');
+                const pauseButton = document.getElementById('pause-button');
+                const resumeButton = document.getElementById('resume-button');
+                const stopButton = document.getElementById('stop-button');
+                const completionActions = document.getElementById('completion-actions');
+                const errorContainer = document.getElementById('error-container');
+                const errorMessage = document.getElementById('error-message');
+                
+                const statusUrl = '{{ status_url }}';
+                const controlUrls = {
+                    pause: '{{ control_urls.pause }}',
+                    resume: '{{ control_urls.resume }}',
+                    stop: '{{ control_urls.stop }}'
+                };
+                let isPolling = true;
+                
+                function updateStatus() {
+                    if (!isPolling) return;
+                    
+                    fetch(statusUrl)
+                        .then(response => response.json())
+                        .then(data => {
+                            // Update the progress bar
+                            progressBarFill.style.width = `${data.progress}%`;
+                            processedCount.textContent = data.processed;
+                            totalCount.textContent = data.total;
+                            progressPercent.textContent = data.progress;
+                            
+                            // Update the status display
+                            const status = data.status || 'running';
+                            processStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                            processStatus.className = `process-status process-status--${status}`;
+                            
+                            // Show/hide buttons based on status
+                            if (status === 'running') {
+                                pauseButton.classList.remove('hidden');
+                                resumeButton.classList.add('hidden');
+                            } else if (status === 'pause') {
+                                pauseButton.classList.add('hidden');
+                                resumeButton.classList.remove('hidden');
+                            }
+                            
+                            // Show completion actions if done
+                            if (status === 'complete' || status === 'stopped' || status === 'error') {
+                                pauseButton.classList.add('hidden');
+                                resumeButton.classList.add('hidden');
+                                stopButton.classList.add('hidden');
+                                completionActions.classList.remove('hidden');
+                                isPolling = false;
+                            }
+                            
+                            // Show error if any
+                            if (status === 'error' && data.error) {
+                                errorContainer.classList.remove('hidden');
+                                errorMessage.textContent = data.error;
+                            }
+                            
+                            // Continue polling if still running or paused
+                            if (isPolling) {
+                                setTimeout(updateStatus, 1000);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching status:', error);
+                            setTimeout(updateStatus, 2000);
+                        });
+                }
+                
+                // Initialize status polling
+                updateStatus();
+                
+                // Set up control buttons
+                pauseButton.addEventListener('click', function() {
+                    sendControl('pause');
+                });
+                
+                resumeButton.addEventListener('click', function() {
+                    sendControl('resume');
+                });
+                
+                stopButton.addEventListener('click', function() {
+                    if (confirm('{% trans "Are you sure you want to stop the process? This cannot be undone." %}')) {
+                        sendControl('stop');
+                    }
+                });
+                
+                function sendControl(action) {
+                    const controlUrl = controlUrls[action];
+                    console.log(`Sending ${action} command to ${controlUrl}`);
+                    
+                    fetch(controlUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! Status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log(`${action} command response:`, data);
+                        })
+                        .catch(error => {
+                            console.error(`Error sending ${action} command:`, error);
+                        });
+                }
+            });
+        </script>
+        
+        {% else %}
+        <!-- Initial setup mode -->
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-row">
+                <label for="action">{% trans "Action" %}:</label>
+                <select name="action" id="action" class="form-control">
+                    <option value="remind">{% trans "Send reminders to pending RSVPs" %}</option>
+                    <option value="update_status">{% trans "Update RSVP status" %}</option>
+                </select>
+            </div>
+            
+            <div class="form-row" id="status-row" style="display: none;">
+                <label for="status">{% trans "Status" %}:</label>
+                <select name="status" id="status" class="form-control">
+                    <option value="pending">{% trans "Pending" %}</option>
+                    <option value="accepted">{% trans "Accepted" %}</option>
+                    <option value="declined">{% trans "Declined" %}</option>
+                </select>
+            </div>
+            
+            <div class="form-row">
+                <label for="batch_size">{% trans "Batch Size" %}:</label>
+                <select name="batch_size" id="batch_size" class="form-control">
+                    {% for size in batch_sizes %}
+                    <option value="{{ size }}" {% if size == default_batch_size %}selected{% endif %}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="batch-controls">
+                <button type="submit" class="action-button action-button--green">
+                    {% trans "Start Processing" %}
+                </button>
+            </div>
+        </form>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const actionSelect = document.getElementById('action');
+                const statusRow = document.getElementById('status-row');
+                
+                function toggleStatusDisplay() {
+                    if (actionSelect.value === 'update_status') {
+                        statusRow.style.display = 'block';
+                    } else {
+                        statusRow.style.display = 'none';
+                    }
+                }
+                
+                actionSelect.addEventListener('change', toggleStatusDisplay);
+                toggleStatusDisplay();
+            });
+        </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 
