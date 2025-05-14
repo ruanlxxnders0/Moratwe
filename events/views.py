@@ -239,7 +239,7 @@ def send_confirmation_email(user, event):
 
 def home(request):
     """Home page view."""
-    events = Event.objects.filter(is_active=True, date__gte=timezone.now()).order_by('date')[:5]
+    events = Event.objects.filter(is_active=True, date__gte=timezone.now()).order_by('date')
     return render(request, 'events/home.html', {
         'events': events,
         'SITE_URL': settings.SITE_URL.rstrip('/')
