@@ -296,13 +296,22 @@ def update_rsvp(request, event_id):
     
     # Update invitee RSVP if exists
     try:
-        invitee = Invitee.objects.get(email=request.user.email)
-        invitee_rsvp = InviteeRSVP.objects.get(invitee=invitee, event=event)
-        invitee_rsvp.status = status
-        invitee_rsvp.timestamp = timezone.now()
-        invitee_rsvp.save()
-    except (Invitee.DoesNotExist, InviteeRSVP.DoesNotExist):
+        # Try to get the first Invitee matching the email
+        invitee = Invitee.objects.filter(email=request.user.email).first()
+        if invitee: # Check if an invitee was actually found
+            invitee_rsvp = InviteeRSVP.objects.get(invitee=invitee, event=event)
+            invitee_rsvp.status = status
+            invitee_rsvp.timestamp = timezone.now()
+            invitee_rsvp.save()
+        # If no invitee is found by that email, it will also pass silently,
+        # which is consistent with the original Invitee.DoesNotExist handling.
+    except InviteeRSVP.DoesNotExist: # Only catch InviteeRSVP.DoesNotExist here
         pass
+    # No longer need to catch Invitee.DoesNotExist as .first() returns None if not found
+    # and the `if invitee:` handles it.
+    # MultipleObjectsReturned is also avoided by .first().
+    # You might want to add logging here if multiple invitees are found,
+    # e.g., if Invitee.objects.filter(email=request.user.email).count() > 1
     
     # Send confirmation email for accepted RSVPs
     if status == 'accepted':
