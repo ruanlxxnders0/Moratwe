@@ -4,8 +4,8 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="text-center mb-12">
-        <h1 class="text-4xl font-bold mb-4">Welcome to Moratwe Events</h1>
+    <div class="text-center mb-12 animate-fade-in">
+        <h1 class="text-4xl font-bold mb-4 logo-text-primary">Welcome to Moratwe Events</h1>
         <p class="text-xl text-gray-600">Your premier platform for event management and RSVPs</p>
     </div>
     
@@ -21,13 +21,49 @@
     
     {% if events %}
     <div class="mb-12">
-        <h2 class="text-2xl font-semibold mb-6">Upcoming Events</h2>
+        <h2 class="text-2xl font-semibold mb-6 logo-text-primary">Upcoming Events</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for event in events %}
-            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="logo-card hover-lift overflow-hidden relative animate-scale-in">
                 {% if event.image %}
                 <img src="{{ SITE_URL }}{{ event.image.url }}" alt="{{ event.title }}" class="w-full h-48 object-cover">
                 {% endif %}
+                
+                {% if user.is_authenticated and event.user_rsvp %}
+                <!-- RSVP Status Badge -->
+                <div class="absolute top-4 right-4">
+                    {% if event.user_rsvp.status == 'accepted' %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 shadow-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Attending
+                        </span>
+                    {% elif event.user_rsvp.status == 'declined' %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 shadow-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                            Not Attending
+                        </span>
+                    {% elif event.user_rsvp.status == 'maybe' %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 shadow-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                            Maybe
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 shadow-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                            </svg>
+                            Pending
+                        </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
                 <div class="p-6">
                     <h3 class="text-xl font-semibold mb-2">{{ event.title }}</h3>
                     <p class="text-gray-600 mb-4">{{ event.description|truncatewords:30 }}</p>
@@ -36,10 +72,72 @@
                         <p><strong>Time:</strong> {{ event.date|date:"g:i A" }}</p>
                         <p><strong>Location:</strong> {{ event.location }}</p>
                     </div>
-                    <a href="{% url 'events:event_detail' event.id %}" 
-                       class="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                        View Details
-                    </a>
+                    
+                    {% if user.is_authenticated and event.user_rsvp %}
+                    <!-- RSVP Status Info -->
+                    <div class="mb-4 p-3 bg-gray-50 rounded-md">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-600">
+                                <strong>Your RSVP:</strong> 
+                                <span class="font-medium
+                                    {% if event.user_rsvp.status == 'accepted' %}text-green-600
+                                    {% elif event.user_rsvp.status == 'declined' %}text-red-600
+                                    {% elif event.user_rsvp.status == 'maybe' %}text-yellow-600
+                                    {% else %}text-gray-600{% endif %}">
+                                    {{ event.user_rsvp.get_status_display }}
+                                </span>
+                            </div>
+                            {% if event.user_rsvp.response_date %}
+                            <div class="text-xs text-gray-500">
+                                {{ event.user_rsvp.response_date|date:"M j, Y" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if event.user_rsvp.status == 'accepted' %}
+                            {% if event.user_rsvp.number_of_guests > 0 %}
+                            <div class="text-sm text-gray-600 mt-1">
+                                <span class="inline-flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
+                                    </svg>
+                                    {{ event.user_rsvp.number_of_guests }} guest{{ event.user_rsvp.number_of_guests|pluralize }}
+                                </span>
+                            </div>
+                            {% endif %}
+                            
+                            {% if event.user_rsvp.qr_code %}
+                            <div class="text-sm text-green-600 mt-1">
+                                <span class="inline-flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V8zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2z" clip-rule="evenodd"/>
+                                    </svg>
+                                    QR Code Ready
+                                </span>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="flex items-center justify-between">
+                        <a href="{% url 'events:event_detail' event.id %}" 
+                           class="btn-logo-primary">
+                            View Details
+                        </a>
+                        
+                        {% if user.is_authenticated %}
+                            {% if not event.user_rsvp %}
+                            <span class="text-sm text-gray-500 italic">RSVP Required</span>
+                            {% elif event.user_rsvp.status == 'accepted' %}
+                            <span class="text-sm text-green-600 font-medium">✓ You're attending</span>
+                            {% elif event.user_rsvp.status == 'declined' %}
+                            <span class="text-sm text-red-600">Not attending</span>
+                            {% elif event.user_rsvp.status == 'maybe' %}
+                            <span class="text-sm text-yellow-600">Maybe attending</span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endfor %}

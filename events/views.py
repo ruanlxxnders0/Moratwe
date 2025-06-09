@@ -240,6 +240,22 @@ def send_confirmation_email(user, event):
 def home(request):
     """Home page view."""
     events = Event.objects.filter(is_active=True, date__gte=timezone.now()).order_by('date')
+    
+    # If user is logged in, get their RSVP status for each event
+    if request.user.is_authenticated:
+        # Get all RSVPs for this user and these events
+        user_rsvps = RSVP.objects.filter(
+            user=request.user, 
+            event__in=events
+        ).select_related('event')
+        
+        # Create a dictionary for quick lookup: event_id -> rsvp
+        rsvp_dict = {rsvp.event.id: rsvp for rsvp in user_rsvps}
+        
+        # Add RSVP information to each event
+        for event in events:
+            event.user_rsvp = rsvp_dict.get(event.id, None)
+    
     return render(request, 'events/home.html', {
         'events': events,
         'SITE_URL': settings.SITE_URL.rstrip('/')
