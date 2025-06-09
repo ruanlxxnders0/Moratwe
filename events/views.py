@@ -268,7 +268,7 @@ def event_detail(request, event_id):
 def update_rsvp(request, event_id):
     """Handle RSVP updates from the event detail page."""
     if request.method != 'POST':
-        messages.error(request, _("Invalid request method."))
+        # messages.error(request, _("Invalid request method."))
         return redirect('events:event_detail', event_id=event_id)
     
     event = get_object_or_404(Event, id=event_id)

@@ -12,23 +12,53 @@
                 extend: {
                     colors: {
                         primary: {
-                            light: '#8e68ff',
-                            DEFAULT: '#6941e1',
-                            dark: '#5832c2',
+                            light: 'var(--logo-primary-light, #8e68ff)',
+                            DEFAULT: 'var(--logo-primary, #6941e1)',
+                            dark: 'var(--logo-primary-dark, #5832c2)',
                         },
                         secondary: {
-                            light: '#5ecdd8',
-                            DEFAULT: '#36bbc8',
-                            dark: '#2a9ca8',
+                            light: 'var(--logo-secondary-light, #5ecdd8)',
+                            DEFAULT: 'var(--logo-secondary, #36bbc8)',
+                            dark: 'var(--logo-secondary-dark, #2a9ca8)',
                         },
                         accent: {
-                            light: '#ffd876',
-                            DEFAULT: '#ffc82c',
-                            dark: '#e0a800',
+                            light: 'var(--logo-accent-light, #ffd876)',
+                            DEFAULT: 'var(--logo-accent, #ffc82c)',
+                            dark: 'var(--logo-accent-dark, #e0a800)',
+                        },
+                        neutral: {
+                            100: 'var(--logo-neutral-100, #F8F9FA)',
+                            200: 'var(--logo-neutral-200, #E9ECEF)',
+                            300: 'var(--logo-neutral-300, #DEE2E6)',
+                            400: 'var(--logo-neutral-400, #CED4DA)',
+                            500: 'var(--logo-neutral-500, #6C757D)',
+                            600: 'var(--logo-neutral-600, #495057)',
+                            700: 'var(--logo-neutral-700, #343A40)',
+                            800: 'var(--logo-neutral-800, #212529)',
+                            900: 'var(--logo-neutral-900, #0D1117)',
                         }
                     },
                     fontFamily: {
                         'poppins': ['Poppins', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s ease-out',
+                        'slide-up': 'slideUp 0.8s ease-out',
+                        'scale-in': 'scaleIn 0.4s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(40px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        scaleIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.9)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' },
+                        }
                     }
                 }
             }
@@ -36,6 +66,7 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+    <link rel="stylesheet" href="{% static 'css/logo-theme.css' %}">
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -61,8 +92,8 @@
         <nav class="container mx-auto px-4 py-4">
             <div class="flex justify-between items-center">
                 <a href="{% url 'landing' %}" class="flex items-center space-x-2">
-                    <img src="{{ SITE_URL|default:'' }}/static/images/logo_transparent.png" alt="Moratwe" class="h-10">
-                    <span class="text-xl font-bold text-primary">Moratwe</span>
+                    <img src="{{ SITE_URL|default:'' }}/static/images/logo_transparent.png" alt="Moratwe" class="h-20">
+                    <!-- <span class="text-xl font-bold text-primary">Moratwe</span> -->
                 </a>
                 <div class="hidden md:flex space-x-6">
                     <a href="{% url 'landing' %}" class="text-gray-600 hover:text-primary font-medium">Home</a>
@@ -137,6 +168,7 @@
         </div>
     </footer>
 
+    <!-- <script src="{% static 'js/logo-color-extractor.js' %}"></script> -->
     {% block extra_js %}{% endblock %}
 </body>
 </html> 
