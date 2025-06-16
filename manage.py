@@ -2,10 +2,19 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+from dotenv import load_dotenv
 
 
 def main():
     """Run administrative tasks."""
+    # Load environment variables from .env file
+    load_dotenv()
+    
+    # Load SendGrid-specific environment variables
+    dotenv_path = os.path.join(os.path.dirname(__file__), 'sendgrid.env')
+    if os.path.exists(dotenv_path):
+        load_dotenv(dotenv_path=dotenv_path)
+
     # Set the default settings module based on environment
     # Check if we're running in production environment by looking at DJANGO_ENV
     # This determines which settings module to use (production vs development)

@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.cache import cache
@@ -14,6 +15,11 @@ from django.urls import reverse
 from userlists.models import Invitee
 from django.utils.html import strip_tags
 from django.contrib.auth.decorators import login_required
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+import os
+
+logger = logging.getLogger(__name__)
 
 
 def handle_rsvp(request, action):
@@ -71,7 +77,7 @@ def handle_rsvp(request, action):
         if action == 'accept':
             messages.success(request, _("Thank you for accepting the invitation!"))
             # Send confirmation email
-            send_confirmation_email(user, event)
+            send_confirmation_email(user, event, request)
         else:
             messages.info(request, _("Thank you for letting us know you can't make it."))
         
@@ -136,7 +142,7 @@ def register_from_invitation(request):
             )
             
             # Send confirmation email
-            send_confirmation_email(user, event)
+            send_confirmation_email(user, event, request)
             
             # Clear session data
             for key in ['invitee_email', 'invitee_first_name', 'invitee_last_name', 
@@ -159,11 +165,15 @@ def register_from_invitation(request):
     })
 
 
-def send_confirmation_email(user, event):
+def send_confirmation_email(user, event, request=None):
     """Send a confirmation email after RSVP acceptance."""
     # Get the RSVP to access the QR code
-    rsvp = RSVP.objects.get(event=event, user=user)
-    
+    try:
+        rsvp = RSVP.objects.get(event=event, user=user)
+    except RSVP.DoesNotExist:
+        logger.error(f"Could not find RSVP for user {user.id} and event {event.id} when sending confirmation.")
+        return
+
     # Try to get a confirmation template, fall back to default if none exists
     template = EmailTemplate.objects.filter(name='RSVP Confirmation').first()
     if not template:
@@ -214,27 +224,38 @@ def send_confirmation_email(user, event):
         )
     
     # Build the context with all necessary information
+    qr_code_url = None
+    if rsvp.qr_code:
+        if request:
+            qr_code_url = request.build_absolute_uri(rsvp.qr_code.url)
+        else:
+            qr_code_url = f"{settings.SITE_URL}{rsvp.qr_code.url}"
+
     context = Context({
         'first_name': user.first_name or 'Guest',
         'last_name': user.last_name or '',
         'event': event,
-        'qr_code_url': f"{settings.SITE_URL}{rsvp.qr_code.url}" if rsvp.qr_code else None,
-        'event_url': f"{settings.SITE_URL}/events/{event.id}/",
+        'qr_code_url': qr_code_url,
+        'event_url': f"{settings.SITE_URL.rstrip('/')}{reverse('events:event_detail', args=[event.id])}",
         'SITE_URL': settings.SITE_URL.rstrip('/')
     })
     
     subject = Template(template.subject).render(context)
-    message = Template(template.content).render(context)
-    plain_message = strip_tags(message)
-    
-    send_mail(
-        subject=subject,
-        message=plain_message,
+    html_content = Template(template.content).render(context)
+
+    message = Mail(
         from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-        html_message=message,
-        fail_silently=False,
+        to_emails=user.email,
+        subject=subject,
+        html_content=html_content
     )
+    
+    try:
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        logger.info(f"SendGrid confirmation email sent to {user.email}, status code: {response.status_code}")
+    except Exception as e:
+        logger.error(f"Error sending confirmation email via SendGrid to {user.email}: {e}")
 
 
 def home(request):
@@ -331,7 +352,7 @@ def update_rsvp(request, event_id):
     
     # Send confirmation email for accepted RSVPs
     if status == 'accepted':
-        send_confirmation_email(request.user, event)
+        send_confirmation_email(request.user, event, request)
         messages.success(request, _("Thank you for accepting the invitation!"))
         
         # If this is a new acceptance or they're changing from declined to accepted,

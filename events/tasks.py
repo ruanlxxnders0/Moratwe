@@ -9,6 +9,9 @@ from django.template import Template, Context
 from django.utils.html import strip_tags
 from django.core.mail import EmailMultiAlternatives
 from django.urls import reverse
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, To
+import os
 
 from events.models import Event, EmailTemplate, InviteeRSVP, TaskStatus
 
@@ -205,6 +208,9 @@ def process_invitations_task(self, task_id, event_id, batch_size):
             
             logger.info(f"Processing batch starting at {offset}, size: {len(current_batch)}")
             
+            # Prepare emails for batch sending
+            messages_to_send = []
+            
             # Process current batch
             for idx, invitee in enumerate(current_batch):
                 # Check status again before each email to quickly respond to pause/stop
@@ -245,43 +251,39 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                         continue
                     
                     # Generate RSVP URLs
-                    rsvp_urls = get_rsvp_urls(event.id, invitee.email)
+                    rsvp_urls = get_rsvp_urls(existing_rsvp.token, invitee.email)
                     
                     # Set up context for template
                     context = Context({
-                        'first_name': invitee.first_name or 'Guest',
-                        'last_name': invitee.last_name or '',
+                        'first_name': invitee.first_name or "",
+                        'last_name': invitee.last_name or "",
                         'event': event,
                         'rsvp_accept_url': rsvp_urls['accept'],
                         'rsvp_decline_url': rsvp_urls['decline'],
                         'SITE_URL': settings.SITE_URL.rstrip('/')
                     })
                     
-                    # Render templates
+                    # Render email subject and content
                     subject = Template(template.subject).render(context)
-                    message = Template(template.content).render(context)
+                    html_content = Template(template.content).render(context)
                     
-                    # Send the email
-                    plain_message = strip_tags(message)
-                    email = EmailMultiAlternatives(
+                    # Create Mail object for SendGrid
+                    organizer_name = "Moratwe Events"
+                    if event.organizer:
+                        organizer_name = event.organizer.get_full_name() or "Moratwe Events"
+
+                    message = Mail(
+                        from_email=(settings.DEFAULT_FROM_EMAIL, organizer_name),
+                        to_emails=To(invitee.email, invitee.get_full_name()),
                         subject=subject,
-                        body=plain_message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[invitee.email]
+                        html_content=html_content
                     )
-                    email.attach_alternative(message, "text/html")
-                    email.send()
                     
-                    # Mark the email as sent
-                    existing_rsvp.email_sent = True
-                    existing_rsvp.email_sent_at = timezone.now()
-                    existing_rsvp.save()
+                    # Add personalization data for tracking if needed
+                    message.add_custom_arg("invitee_id", str(invitee.id))
+                    message.add_custom_arg("event_id", str(event.id))
                     
-                    emails_sent += 1
-                    batch_emails_sent += 1
-                    
-                    if should_log:
-                        logger.info(f"{log_prefix} - email sent successfully")
+                    messages_to_send.append((message, existing_rsvp))
                     
                 except Exception as e:
                     error_msg = str(e)
@@ -333,6 +335,34 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                 # Only increment offset if we processed the entire batch
                 offset += current_batch_size
             
+            # Send the batch of emails using SendGrid
+            if messages_to_send:
+                try:
+                    sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+                    # Note: SendGrid's v3 API sends emails one by one, but the client manages connections efficiently.
+                    # For true batching, you would use SMTP or explore SendGrid's marketing campaign APIs.
+                    # Here we send them sequentially within the task.
+                    for mail_obj, rsvp_obj in messages_to_send:
+                        response = sg.send(mail_obj)
+                        if 200 <= response.status_code < 300:
+                            # Mark as sent
+                            rsvp_obj.email_sent = True
+                            rsvp_obj.email_sent_at = timezone.now()
+                            rsvp_obj.save(update_fields=['email_sent', 'email_sent_at'])
+                            batch_emails_sent += 1
+                        else:
+                            logger.error(f"Failed to send email to {rsvp_obj.invitee.email}: {response.body}")
+                            failed_emails.append(rsvp_obj.invitee.email)
+                
+                except Exception as e:
+                    logger.error(f"Error sending batch emails via SendGrid: {e}")
+                    # Mark all in this batch as failed for simplicity
+                    failed_emails.extend([rsvp.invitee.email for _, rsvp in messages_to_send])
+            
+            # Update counts
+            emails_sent += batch_emails_sent
+            processed_count += len(current_batch)
+            
             # Log batch completion
             logger.info(f"Completed batch starting at {offset-current_batch_size}, sent {batch_emails_sent} emails, skipped {batch_emails_skipped}, failed: {len(failed_emails)}")
         
@@ -355,9 +385,11 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                 processed=processed_count,
                 emails_sent=emails_sent,
                 failed=len(failed_emails),
-                message=final_message,
-                offset=offset,
-                additional_data={'emails_skipped': emails_skipped}
+                message=f'Process complete. Sent {emails_sent} emails, skipped {emails_skipped}, failed {len(failed_emails)}.',
+                additional_data={
+                    'failed_emails': failed_emails,
+                    'emails_skipped': emails_skipped
+                }
             )
         elif current_status == 'pause':
             # Just update the counts but keep paused status
@@ -374,16 +406,13 @@ def process_invitations_task(self, task_id, event_id, batch_size):
         logger.info(f"======== COMPLETED task {task_id} successfully. Sent {emails_sent} invitations, skipped {emails_skipped}, failed {len(failed_emails)}. ========")
         
     except Exception as e:
-        logger.error(f"Error in invitation batch task {task_id}: {str(e)}", exc_info=True)
-        
-        # Update task status with error
+        logger.error(f"Error in invitation batch task {task_id}: {e}", exc_info=True)
         TaskStatus.update_task(
             task_id,
             status='error',
             error=str(e),
-            message=f'Error: {str(e)}'
+            message=f'An unexpected error occurred: {e}'
         )
-        return
 
 
 @shared_task(bind=True)
@@ -473,9 +502,9 @@ def process_rsvps_task(self, task_id, event_id, action, status_value=None, batch
             if action == 'remind':
                 # Only get pending RSVPs for reminders
                 current_batch = invitee_rsvps_base.filter(status='pending')[offset:offset+current_batch_size]
-                emails_sent = process_rsvp_reminders(event, current_batch)
+                sent_count, failed_count = process_rsvp_reminders(event, current_batch)
                 
-                logger.info(f"Task {task_id}: Sent {emails_sent} reminders (batch starting at {offset})")
+                logger.info(f"Task {task_id}: Reminders sent to {sent_count} invitees with {failed_count} failures (batch starting at {offset})")
                 
             elif action == 'update_status':
                 # Update status for all RSVPs in batch
@@ -496,7 +525,7 @@ def process_rsvps_task(self, task_id, event_id, action, status_value=None, batch
                 processed=processed_count,
                 total=total_count,
                 offset=offset + batch_count,
-                message=f'Processed {processed_count} of {total_count} RSVPs'
+                message=f"Reminders sent to {sent_count} invitees with {failed_count} failures."
             )
             
             offset += batch_size
@@ -507,120 +536,102 @@ def process_rsvps_task(self, task_id, event_id, action, status_value=None, batch
             status='complete',
             progress=100,
             processed=processed_count,
-            message=f'Process completed. Processed {processed_count} RSVPs.'
+            message=f"Reminders sent to {processed_count} invitees with {len(failed_emails)} failures."
         )
         
         logger.info(f"Task {task_id} completed successfully. Processed {processed_count} RSVPs.")
         
     except Exception as e:
-        logger.error(f"Error in RSVP batch task {task_id}: {str(e)}", exc_info=True)
-        
-        # Update task status with error
+        logger.error(f"Error in RSVP processing task {task_id}: {e}", exc_info=True)
         TaskStatus.update_task(
             task_id,
             status='error',
             error=str(e),
-            message=f'Error: {str(e)}'
+            message=f'An unexpected error occurred: {e}'
         )
 
 
 def process_rsvp_reminders(event, rsvps):
-    """Process RSVP reminders for a batch of RSVPs."""
-    emails_sent = 0
+    """
+    Send reminder emails to a list of invitees.
+    """
+    sent_count = 0
+    failed_emails = []
     
-    # Get the reminder template
-    reminder_template = EmailTemplate.objects.filter(name__icontains='reminder').first()
-    if not reminder_template:
-        reminder_template = EmailTemplate.objects.filter(is_default=True).first()
+    # Get the reminder email template
+    template = EmailTemplate.objects.filter(name__iexact='Event Reminder').first()
+    if not template:
+        logger.error(f"No 'Event Reminder' template found for event {event.id}. Cannot send reminders.")
+        return 0, len(rsvps)
     
-    if not reminder_template:
-        logger.error("No email template found for reminders")
-        return 0
+    # Prepare emails
+    messages_to_send = []
+    for rsvp in rsvps:
+        invitee = rsvp.invitee
+        
+        # Generate RSVP URLs
+        rsvp_urls = get_rsvp_urls(rsvp.token, invitee.email)
+        
+        context = Context({
+            'first_name': invitee.first_name,
+            'last_name': invitee.last_name,
+            'event': event,
+            'rsvp_accept_url': rsvp_urls['accept'],
+            'rsvp_decline_url': rsvp_urls['decline'],
+            'SITE_URL': settings.SITE_URL.rstrip('/')
+        })
+        
+        subject = Template(template.subject).render(context)
+        html_content = Template(template.content).render(context)
+        
+        message = Mail(
+            from_email=(settings.DEFAULT_FROM_EMAIL, event.organizer.get_full_name() or 'Moratwe Events'),
+            to_emails=To(invitee.email, invitee.get_full_name()),
+            subject=subject,
+            html_content=html_content
+        )
+        
+        messages_to_send.append(message)
     
-    for invitee_rsvp in rsvps:
-        invitee = invitee_rsvp.invitee
+    # Send emails via SendGrid
+    if messages_to_send:
         try:
-            # Generate RSVP URLs
-            rsvp_urls = get_rsvp_urls(event.id, invitee.email)
-            
-            # Set up context for template
-            context = Context({
-                'first_name': invitee.first_name or 'Guest',
-                'last_name': invitee.last_name or '',
-                'event': event,
-                'rsvp_accept_url': rsvp_urls['accept'],
-                'rsvp_decline_url': rsvp_urls['decline'],
-                'SITE_URL': settings.SITE_URL.rstrip('/')
-            })
-            
-            # Render the template - for reminders, we may want to prefix the subject
-            subject = "Reminder: " + Template(reminder_template.subject).render(context)
-            message = Template(reminder_template.content).render(context)
-            
-            # Send email
-            plain_message = strip_tags(message)
-            email = EmailMultiAlternatives(
-                subject=subject,
-                body=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[invitee.email]
-            )
-            email.attach_alternative(message, "text/html")
-            email.send()
-            
-            emails_sent += 1
-            
+            sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+            for mail in messages_to_send:
+                response = sg.send(mail)
+                if 200 <= response.status_code < 300:
+                    sent_count += 1
+                else:
+                    failed_emails.append(mail.to[0].email)
         except Exception as e:
-            logger.error(f"Error sending reminder to {invitee.email}: {str(e)}")
-    
-    return emails_sent
+            logger.error(f"Error sending reminder emails via SendGrid: {e}")
+            return 0, len(rsvps)
+            
+    return sent_count, len(failed_emails)
 
 
 def update_rsvp_statuses(rsvps, status):
-    """Update RSVP statuses for a batch of RSVPs."""
-    updated = 0
-    
+    """
+    Update the status for a list of RSVPs.
+    """
     for rsvp in rsvps:
-        try:
-            rsvp.status = status
-            rsvp.timestamp = timezone.now()
-            rsvp.save()
-            updated += 1
-        except Exception as e:
-            logger.error(f"Error updating RSVP for {rsvp.invitee.email}: {str(e)}")
-    
-    return updated
+        rsvp.status = status
+        rsvp.save()
 
 
-def get_rsvp_urls(event_id, invitee_email):
-    """Generate RSVP accept and decline URLs for an invitee."""
-    from userlists.models import Invitee
+def get_rsvp_urls(token, email):
+    """Generate absolute URLs for RSVP actions."""
     
     base_url = settings.SITE_URL.rstrip('/')
     
-    # Get the first invitee with this email (in case of duplicates)
-    invitee = Invitee.objects.filter(email=invitee_email).first()
-    if not invitee:
-        raise ValueError(f"No invitee found for email: {invitee_email}")
+    accept_path = reverse('events:rsvp_accept')
+    decline_path = reverse('events:rsvp_decline')
     
-    # Create or get InviteeRSVP
-    invitee_rsvp, created = InviteeRSVP.objects.get_or_create(
-        invitee=invitee,
-        event_id=event_id,
-        defaults={'token': uuid.uuid4()}
-    )
-    
-    if created:
-        invitee_rsvp.token = uuid.uuid4()
-        invitee_rsvp.save()
-    
-    from django.utils.http import urlencode
-    params = urlencode({
-        'token': invitee_rsvp.token,
-        'email': invitee_email
-    })
+    # Construct URLs with query parameters
+    accept_url = f"{base_url}{accept_path}?token={token}&email={email}"
+    decline_url = f"{base_url}{decline_path}?token={token}&email={email}"
     
     return {
-        'accept': f"{base_url}/events/rsvp/accept/?{params}",
-        'decline': f"{base_url}/events/rsvp/decline/?{params}"
+        'accept': accept_url,
+        'decline': decline_url
     } 

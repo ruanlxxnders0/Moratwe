@@ -82,15 +82,28 @@ LOGGING = {
     },
     'handlers': {
         'console': {
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
+            'maxBytes': 1024*1024*5, # 5 MB
+            'backupCount': 2,
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'DEBUG',
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'level': 'INFO',
-            'propagate': True,
+            'propagate': False,
         },
         'events.admin': {
             'handlers': ['console'],
@@ -98,4 +111,9 @@ LOGGING = {
             'propagate': False,
         },
     },
-} 
+}
+
+# Email Configuration
+EMAIL_BACKEND = 'moratwe.email_backends.SendGridEmailBackend'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@moratwe.com')
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY') 
