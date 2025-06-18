@@ -27,10 +27,10 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
     
-    @action(detail=False, methods=['get', 'put'])
+    @action(detail=False, methods=['get', 'put', 'delete'])
     def me(self, request):
         """
-        Return or update the authenticated user's details.
+        Return, update, or delete the authenticated user's details.
         """
         if request.method == 'GET':
             logger.info(f"UserViewSet.me GET called by user: {request.user}")
@@ -45,6 +45,21 @@ class UserViewSet(viewsets.ModelViewSet):
                 serializer.save()
                 return Response(serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        elif request.method == 'DELETE':
+            logger.info(f"UserViewSet.me DELETE called by user: {request.user}")
+            
+            # Get user data for logging/deletion confirmation
+            user_email = request.user.email
+            
+            # Delete the user account
+            request.user.delete()
+            
+            logger.info(f"User account deleted: {user_email}")
+            
+            return Response(
+                {"message": "Account successfully deleted"}, 
+                status=status.HTTP_204_NO_CONTENT
+            )
 
 class CustomUserDetailsView(APIView):
     """
