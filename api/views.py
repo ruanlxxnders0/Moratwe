@@ -346,6 +346,10 @@ class PasswordResetRequestView(views.APIView):
 
             {reset_url}
 
+            IMPORTANT: This link must be opened on a mobile device (iPhone or Android) where the Moratwe app is installed. The link will not work on desktop computers or devices without the app.
+
+            If you don't have the Moratwe app installed, please download it from the App Store (iOS) or Google Play Store (Android) first, then click the reset link.
+
             If you did not request this password reset, please ignore this email.
 
             Best regards,
