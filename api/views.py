@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.serializers import UserCreateSerializer, CustomUserSerializer
-from users.models import CustomUser
+from users.models import CustomUser, PasswordResetToken
 from events.models import Event, RSVP, BreakawaySession
 from events.serializers import EventSerializer, BreakawaySessionSerializer
 import logging
@@ -17,14 +17,8 @@ import string
 
 logger = logging.getLogger(__name__)
 
-# Simple in-memory storage for RSVPs and password reset tokens
+# Simple in-memory storage for RSVPs (password reset tokens now use database)
 EVENT_RSVPS = {}
-PASSWORD_RESET_TOKENS = {}
-
-def generate_reset_token():
-    """Generate a secure random token for password reset."""
-    alphabet = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(alphabet) for _ in range(64))
 
 class RegisterView(views.APIView):
     """
@@ -330,15 +324,11 @@ class PasswordResetRequestView(views.APIView):
         try:
             user = CustomUser.objects.get(email=email)
             
-            # Generate and store reset token
-            token = generate_reset_token()
-            PASSWORD_RESET_TOKENS[token] = {
-                'user_id': user.id,
-                'timestamp': timezone.now()
-            }
+            # Generate and store reset token in database
+            reset_token_obj = PasswordResetToken.create_for_user(user)
 
             # Send reset email
-            reset_url = f"moratwe://reset-password?token={token}"
+            reset_url = f"moratwe://reset-password?token={reset_token_obj.token}"
             email_body = f"""
             Hello {user.first_name or user.email},
 
@@ -390,38 +380,32 @@ class PasswordResetConfirmView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Check if token exists and is valid
-        token_data = PASSWORD_RESET_TOKENS.get(token)
-        if not token_data:
-            return Response(
-                {'detail': 'Invalid or expired token.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Check token expiry (24 hours)
-        token_age = timezone.now() - token_data['timestamp']
-        if token_age.total_seconds() > 24 * 60 * 60:
-            PASSWORD_RESET_TOKENS.pop(token, None)
-            return Response(
-                {'detail': 'Token has expired.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         try:
-            user = CustomUser.objects.get(id=token_data['user_id'])
+            # Get the token from database
+            reset_token = PasswordResetToken.objects.get(token=token)
+            
+            # Check if token is valid (not used and not expired)
+            if not reset_token.is_valid:
+                return Response(
+                    {'detail': 'Invalid or expired token.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the user and update password
+            user = reset_token.user
             user.set_password(new_password)
             user.save()
 
-            # Remove used token
-            PASSWORD_RESET_TOKENS.pop(token, None)
+            # Mark token as used
+            reset_token.mark_as_used()
 
             return Response({
                 'detail': 'Password has been reset successfully.'
             })
 
-        except CustomUser.DoesNotExist:
+        except PasswordResetToken.DoesNotExist:
             return Response(
-                {'detail': 'User not found.'},
+                {'detail': 'Invalid or expired token.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
