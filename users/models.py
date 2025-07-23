@@ -88,7 +88,9 @@ class CustomUser(AbstractUser):
             if not cleaned_number.startswith('+') and len(cleaned_number) > 10:
                 cleaned_number = '+' + cleaned_number
                 
-            self.phone_number = cleaned_number
+            # Only update if the cleaned number is different
+            if cleaned_number != self.phone_number:
+                self.phone_number = cleaned_number
 
     def save(self, *args, **kwargs):
         self.clean()
