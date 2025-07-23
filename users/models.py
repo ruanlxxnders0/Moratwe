@@ -18,7 +18,7 @@ class CustomUserManager(BaseUserManager):
         """
         if not email:
             raise ValueError('The Email field must be set')
-        email = self.normalize_email(email)
+        email = self.normalize_email(email).lower().strip()
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -75,6 +75,10 @@ class CustomUser(AbstractUser):
         
     def clean(self):
         super().clean()
+        # Normalize email to lowercase to prevent case-sensitive duplicates
+        if self.email:
+            self.email = self.email.lower().strip()
+        
         # Clean phone number if provided
         if self.phone_number:
             # Remove any non-digit characters except for leading +
