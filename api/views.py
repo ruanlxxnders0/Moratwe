@@ -10,7 +10,7 @@ from events.serializers import EventSerializer, BreakawaySessionSerializer
 import logging
 from django.utils import timezone
 from django.contrib.auth import authenticate
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 import secrets
 import string
@@ -329,7 +329,43 @@ class PasswordResetRequestView(views.APIView):
 
             # Send reset email
             reset_url = f"moratwe://reset-password?token={reset_token_obj.token}"
-            email_body = f"""
+            
+            # HTML email body
+            html_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2 style="color: #2c3e50;">Password Reset Request</h2>
+                
+                <p>Hello {user.first_name or user.email},</p>
+                
+                <p>You have requested to reset your password. Please click the link below to reset your password:</p>
+                
+                <p style="margin: 20px 0;">
+                    <a href="{reset_url}" style="background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                        Reset My Password
+                    </a>
+                </p>
+                
+                <p style="margin: 20px 0;">
+                    <strong>IMPORTANT:</strong> This link must be opened on a mobile device (iPhone or Android) where the Moratwe app is installed. The link will not work on desktop computers or devices without the app.
+                </p>
+                
+                <p>If you don't have the Moratwe app installed, please download it from the App Store (iOS) or Google Play Store (Android) first, then click the reset link.</p>
+                
+                <p>If you did not request this password reset, please ignore this email.</p>
+                
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                
+                <p style="color: #7f8c8d; font-size: 14px;">
+                    Best regards,<br>
+                    Moratwe Team
+                </p>
+            </body>
+            </html>
+            """
+            
+            # Plain text fallback
+            text_body = f"""
             Hello {user.first_name or user.email},
 
             You have requested to reset your password. Please click the link below to reset your password:
@@ -346,13 +382,15 @@ class PasswordResetRequestView(views.APIView):
             Moratwe Team
             """
 
-            send_mail(
+            # Send HTML email
+            email = EmailMessage(
                 'Password Reset Request',
-                email_body,
+                html_body,
                 settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=False,
+                [email]
             )
+            email.content_subtype = "html"  # Set content type to HTML
+            email.send()
 
             return Response({
                 'detail': 'Password reset instructions have been sent to your email.'
