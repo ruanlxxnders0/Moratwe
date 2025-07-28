@@ -10,11 +10,15 @@ class CustomUserSerializer(serializers.ModelSerializer):
     Serializer for the custom user model.
     """
     username = serializers.SerializerMethodField()
+    phone_number = serializers.CharField(max_length=30, required=False, allow_blank=True)
     
     class Meta:
         model = User
         fields = ('id', 'email', 'username', 'first_name', 'last_name', 'phone_number', 'date_joined', 'is_active', 'is_organizer')
         read_only_fields = ('id', 'date_joined', 'is_active')
+        extra_kwargs = {
+            'phone_number': {'validators': []},  # Remove default unique validator
+        }
     
     def get_username(self, obj):
         """
@@ -63,11 +67,15 @@ class UserCreateSerializer(serializers.ModelSerializer):
     """
     password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
     password_confirm = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    phone_number = serializers.CharField(max_length=30, required=False, allow_blank=True)
     
     class Meta:
         model = User
         fields = ('id', 'email', 'first_name', 'last_name', 'phone_number', 'is_organizer', 'password', 'password_confirm')
         read_only_fields = ('id',)
+        extra_kwargs = {
+            'phone_number': {'validators': []},  # Remove default unique validator
+        }
     
     def validate_phone_number(self, value):
         """
