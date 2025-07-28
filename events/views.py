@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.core.cache import cache
 from django.utils.translation import gettext as _
 from django.http import Http404
+from django.db import IntegrityError
 from .models import Event, RSVP, EmailTemplate, EventInvitation, InviteeRSVP, BreakawaySession
 from users.models import CustomUser
 from django.contrib.auth import login
@@ -13,6 +14,8 @@ from django.core.mail import send_mail
 from django.template import Template, Context
 from django.urls import reverse
 from userlists.models import Invitee
+
+logger = logging.getLogger(__name__)
 from django.utils.html import strip_tags
 from django.contrib.auth.decorators import login_required
 from sendgrid import SendGridAPIClient
@@ -112,13 +115,40 @@ def register_from_invitation(request):
             return redirect('events:home')
         
         # Create new user
-        user = CustomUser.objects.create_user(
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-            phone_number=mobile
-        )
+        try:
+            user = CustomUser.objects.create_user(
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                phone_number=mobile
+            )
+        except IntegrityError as e:
+            # Handle database integrity errors (like duplicate phone numbers)
+            if 'phone_number' in str(e).lower():
+                messages.error(request, 'This phone number is already registered. Please contact support if you believe this is an error.')
+            elif 'email' in str(e).lower():
+                messages.error(request, 'This email address is already registered. Please contact support if you believe this is an error.')
+            else:
+                messages.error(request, 'A user with this information already exists. Please contact support if you believe this is an error.')
+            return render(request, 'events/register_from_invitation.html', {
+                'email': email,
+                'first_name': first_name,
+                'last_name': last_name,
+                'mobile': mobile,
+                'SITE_URL': settings.SITE_URL.rstrip('/')
+            })
+        except Exception as e:
+            # Handle any other unexpected errors
+            logger.error(f"Unexpected error during invitation registration: {e}")
+            messages.error(request, 'An unexpected error occurred during registration. Please try again or contact support.')
+            return render(request, 'events/register_from_invitation.html', {
+                'email': email,
+                'first_name': first_name,
+                'last_name': last_name,
+                'mobile': mobile,
+                'SITE_URL': settings.SITE_URL.rstrip('/')
+            })
         
         # Log the user in
         login(request, user)
