@@ -178,13 +178,12 @@ class EventAdmin(admin.ModelAdmin):
         """Display RSVP statistics and management dashboard for an event."""
         event = get_object_or_404(Event, id=event_id)
         
-        # Get all invitations for this event
-        invitations = EventInvitation.objects.filter(event=event)
-        invitation_count = invitations.count()
-        
         # Get RSVP statistics
         user_rsvps = RSVP.objects.filter(event=event)
         invitee_rsvps = InviteeRSVP.objects.filter(event=event)
+        
+        # Calculate total invitations sent (individual people, not user lists)
+        invitation_count = user_rsvps.count() + invitee_rsvps.count()
         
         # Calculate statistics
         accepted_count = user_rsvps.filter(status='accepted').count() + invitee_rsvps.filter(status='accepted').count()
