@@ -279,9 +279,8 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                         html_content=html_content
                     )
                     
-                    # Add personalization data for tracking if needed
-                    message.add_custom_arg("invitee_id", str(invitee.id))
-                    message.add_custom_arg("event_id", str(event.id))
+                    # Note: Custom args removed to avoid SendGrid API issues
+                    # The email will still be sent successfully without custom tracking
                     
                     messages_to_send.append((message, existing_rsvp))
                     
