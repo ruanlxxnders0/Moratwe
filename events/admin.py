@@ -1484,7 +1484,7 @@ class RSVPAdmin(admin.ModelAdmin):
     list_display = ('event', 'user_info', 'status', 'response_date', 'checked_in', 'number_of_guests', 'created_at')
     list_filter = ('checked_in', 'event', 'status', 'response_date', 'created_at')
     search_fields = ('user__email', 'user__first_name', 'user__last_name', 'notes', 'dietary_requirements')
-    readonly_fields = ('created_at', 'qr_code', 'qr_code_data')
+    readonly_fields = ('created_at', 'updated_at', 'qr_code', 'qr_code_data')
     filter_horizontal = ('selected_sessions',)
     actions = ['export_as_csv', 'mark_as_checked_in', 'mark_as_not_checked_in']
     date_hierarchy = 'response_date'
