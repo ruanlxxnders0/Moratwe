@@ -23,23 +23,10 @@ class CustomUserSerializer(serializers.ModelSerializer):
         if obj.first_name:
             return obj.first_name
         return obj.email.split('@')[0]
-
-
-class UserCreateSerializer(serializers.ModelSerializer):
-    """
-    Serializer for creating a new user.
-    """
-    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-    password_confirm = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-    
-    class Meta:
-        model = User
-        fields = ('id', 'email', 'first_name', 'last_name', 'phone_number', 'is_organizer', 'password', 'password_confirm')
-        read_only_fields = ('id',)
     
     def validate_phone_number(self, value):
         """
-        Clean and validate phone number format.
+        Clean and validate phone number format and uniqueness.
         """
         if value:
             # Remove any non-digit characters except for leading +
@@ -56,6 +43,60 @@ class UserCreateSerializer(serializers.ModelSerializer):
             # Validate length
             if not cleaned_number.startswith('+') and len(cleaned_number) < 10:
                 raise serializers.ValidationError("Phone number must be at least 10 digits.")
+            
+            # Check for duplicate phone number (exclude current user if updating)
+            existing_user_query = User.objects.filter(phone_number=cleaned_number)
+            if self.instance:
+                # If updating an existing user, exclude the current user from the check
+                existing_user_query = existing_user_query.exclude(pk=self.instance.pk)
+            
+            if existing_user_query.exists():
+                raise serializers.ValidationError("This phone number is already registered. Please use a different phone number.")
+            
+            return cleaned_number
+        return value
+
+
+class UserCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating a new user.
+    """
+    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    password_confirm = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    
+    class Meta:
+        model = User
+        fields = ('id', 'email', 'first_name', 'last_name', 'phone_number', 'is_organizer', 'password', 'password_confirm')
+        read_only_fields = ('id',)
+    
+    def validate_phone_number(self, value):
+        """
+        Clean and validate phone number format and uniqueness.
+        """
+        if value:
+            # Remove any non-digit characters except for leading +
+            if value.startswith('+'):
+                # Keep the leading + sign
+                cleaned_number = '+' + re.sub(r'\D', '', value[1:])
+            else:
+                cleaned_number = re.sub(r'\D', '', value)
+            
+            # Add + prefix for international format if it looks like an international number
+            if not cleaned_number.startswith('+') and len(cleaned_number) > 10:
+                cleaned_number = '+' + cleaned_number
+                
+            # Validate length
+            if not cleaned_number.startswith('+') and len(cleaned_number) < 10:
+                raise serializers.ValidationError("Phone number must be at least 10 digits.")
+            
+            # Check for duplicate phone number (exclude current user if updating)
+            existing_user_query = User.objects.filter(phone_number=cleaned_number)
+            if self.instance:
+                # If updating an existing user, exclude the current user from the check
+                existing_user_query = existing_user_query.exclude(pk=self.instance.pk)
+            
+            if existing_user_query.exists():
+                raise serializers.ValidationError("This phone number is already registered. Please use a different phone number.")
             
             return cleaned_number
         return value

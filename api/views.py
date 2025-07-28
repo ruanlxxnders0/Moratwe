@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.contrib.auth import authenticate
 from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
+from django.db import IntegrityError
 import secrets
 import string
 
@@ -29,18 +30,41 @@ class RegisterView(views.APIView):
     def post(self, request):
         serializer = UserCreateSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            user.is_active = True  # Ensure user is active
-            user.save()
-            
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            
-            return Response({
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-                'user': CustomUserSerializer(user).data
-            }, status=status.HTTP_201_CREATED)
+            try:
+                user = serializer.save()
+                user.is_active = True  # Ensure user is active
+                user.save()
+                
+                # Generate JWT tokens
+                refresh = RefreshToken.for_user(user)
+                
+                return Response({
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                    'user': CustomUserSerializer(user).data
+                }, status=status.HTTP_201_CREATED)
+            except IntegrityError as e:
+                # Handle database integrity errors (like duplicate phone numbers)
+                if 'phone_number' in str(e).lower():
+                    return Response({
+                        'phone_number': ['This phone number is already registered. Please use a different phone number.']
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                elif 'email' in str(e).lower():
+                    return Response({
+                        'email': ['This email address is already registered. Please use a different email address.']
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    # Log the unexpected integrity error
+                    logger.error(f"Integrity error during user registration: {e}")
+                    return Response({
+                        'error': ['A user with this information already exists. Please check your details.']
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                # Log any other unexpected errors
+                logger.error(f"Unexpected error during user registration: {e}")
+                return Response({
+                    'error': ['An unexpected error occurred during registration. Please try again.']
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TestAPIView(views.APIView):

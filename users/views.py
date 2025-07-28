@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import action
 from .models import CustomUser
 from .serializers import CustomUserSerializer
+from django.db import IntegrityError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,35 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
     
+    def create(self, request, *args, **kwargs):
+        """
+        Override create to handle duplicate phone number errors gracefully.
+        """
+        try:
+            return super().create(request, *args, **kwargs)
+        except IntegrityError as e:
+            # Handle database integrity errors (like duplicate phone numbers)
+            if 'phone_number' in str(e).lower():
+                return Response({
+                    'phone_number': ['This phone number is already registered. Please use a different phone number.']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            elif 'email' in str(e).lower():
+                return Response({
+                    'email': ['This email address is already registered. Please use a different email address.']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # Log the unexpected integrity error
+                logger.error(f"Integrity error during user creation: {e}")
+                return Response({
+                    'error': ['A user with this information already exists. Please check your details.']
+                }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            # Log any other unexpected errors
+            logger.error(f"Unexpected error during user creation: {e}")
+            return Response({
+                'error': ['An unexpected error occurred during registration. Please try again.']
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
     @action(detail=False, methods=['get', 'put', 'delete'])
     def me(self, request):
         """
@@ -42,8 +72,31 @@ class UserViewSet(viewsets.ModelViewSet):
             logger.info(f"Request data: {request.data}")
             serializer = self.get_serializer(request.user, data=request.data, partial=True)
             if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
+                try:
+                    serializer.save()
+                    return Response(serializer.data)
+                except IntegrityError as e:
+                    # Handle database integrity errors (like duplicate phone numbers)
+                    if 'phone_number' in str(e).lower():
+                        return Response({
+                            'phone_number': ['This phone number is already registered. Please use a different phone number.']
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    elif 'email' in str(e).lower():
+                        return Response({
+                            'email': ['This email address is already registered. Please use a different email address.']
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        # Log the unexpected integrity error
+                        logger.error(f"Integrity error during user profile update: {e}")
+                        return Response({
+                            'error': ['A user with this information already exists. Please check your details.']
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                except Exception as e:
+                    # Log any other unexpected errors
+                    logger.error(f"Unexpected error during user profile update: {e}")
+                    return Response({
+                        'error': ['An unexpected error occurred during profile update. Please try again.']
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         elif request.method == 'DELETE':
             logger.info(f"UserViewSet.me DELETE called by user: {request.user}")
