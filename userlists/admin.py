@@ -79,13 +79,51 @@ class UserListAdmin(admin.ModelAdmin):
 
                 for index, row in df.iterrows():
                     try:
-                        # Validate email
-                        email = str(row[email_col]).strip()
-                        if not email:
+                        # Clean and validate email
+                        email_raw = str(row[email_col])
+                        if not email_raw:
                             errors.append(f'Row {index + 2}: Email is required')
                             continue
-                            
-                        validate_email(email)
+                        
+                        # Clean the email: strip whitespace, newlines, tabs, etc.
+                        email = email_raw.strip().replace('\n', '').replace('\r', '').replace('\t', '')
+                        
+                        if not email:
+                            errors.append(f'Row {index + 2}: Email is required after cleaning')
+                            continue
+                        
+                        # Additional cleaning for common issues
+                        # Remove trailing dots (common Excel issue)
+                        if email.endswith('.'):
+                            email = email[:-1]
+                        
+                        # Skip validation for obviously invalid emails
+                        if '@' not in email or email.count('@') != 1:
+                            errors.append(f'Row {index + 2}: Invalid email format - missing or multiple @ symbols in "{email}"')
+                            continue
+                        
+                        # Split email to check basic structure
+                        local_part, domain_part = email.split('@', 1)
+                        if not local_part or not domain_part:
+                            errors.append(f'Row {index + 2}: Invalid email format - missing local or domain part in "{email}"')
+                            continue
+                        
+                        # Check for common domain issues
+                        if domain_part.startswith('.') or domain_part.endswith('.'):
+                            errors.append(f'Row {index + 2}: Invalid email format - domain cannot start or end with dot in "{email}"')
+                            continue
+                        
+                        if '..' in domain_part:
+                            errors.append(f'Row {index + 2}: Invalid email format - consecutive dots in domain "{email}"')
+                            continue
+                        
+                        # Try Django's validate_email
+                        try:
+                            validate_email(email)
+                        except ValidationError:
+                            # Provide more specific error message
+                            errors.append(f'Row {index + 2}: Invalid email format "{email}" - please check the email address')
+                            continue
                         
                         # Check for duplicate email in the list
                         if Invitee.objects.filter(user_list=user_list, email=email).exists():
@@ -125,8 +163,6 @@ class UserListAdmin(admin.ModelAdmin):
                         invitee.save()
                         success_count += 1
 
-                    except ValidationError:
-                        errors.append(f'Row {index + 2}: Invalid email format for {row[email_col]}')
                     except Exception as e:
                         errors.append(f'Row {index + 2}: {str(e)}')
 

@@ -36,6 +36,15 @@
             <p>Required columns: email</p>
             <p>Optional columns: first_name, last_name, mobile_number</p>
             <p>Supported formats: .xlsx, .csv</p>
+            <p><strong>Email format requirements:</strong></p>
+            <ul>
+                <li>Must contain exactly one @ symbol</li>
+                <li>Must have both local part (before @) and domain part (after @)</li>
+                <li>Domain must have a valid TLD (e.g., .com, .org, .co.uk)</li>
+                <li>Cannot have consecutive dots in domain</li>
+                <li>Domain cannot start or end with a dot</li>
+                <li>Common issues: trailing dots, missing TLD, underscores in domain</li>
+            </ul>
         </div>
     </div>
     {{ block.super }}
