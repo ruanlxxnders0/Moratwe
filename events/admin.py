@@ -182,8 +182,8 @@ class EventAdmin(admin.ModelAdmin):
         user_rsvps = RSVP.objects.filter(event=event)
         invitee_rsvps = InviteeRSVP.objects.filter(event=event)
         
-        # Calculate total invitations sent (individual people, not user lists)
-        invitation_count = user_rsvps.count() + invitee_rsvps.count()
+        # Calculate total invitations sent (count InviteeRSVP records where email was actually sent)
+        invitation_count = invitee_rsvps.filter(email_sent=True).count() # + user_rsvps.count()
         
         # Calculate statistics
         accepted_count = user_rsvps.filter(status='accepted').count() + invitee_rsvps.filter(status='accepted').count()
