@@ -33,9 +33,20 @@
             </div>
         </form>
         <div class="help">
-            <p>Required columns: email</p>
-            <p>Optional columns: first_name, last_name, mobile_number</p>
-            <p>Supported formats: .xlsx, .csv</p>
+            <p><strong>Required columns:</strong> Email (must be present)</p>
+            <p><strong>Optional columns:</strong> First Name, Last Name, Mobile Number</p>
+            <p><strong>Supported formats:</strong> .xlsx, .csv</p>
+            
+            <p><strong>📋 Column Auto-Detection:</strong></p>
+            <p>The system automatically detects columns based on common naming patterns. You can use any of these variations:</p>
+            <ul>
+                <li><strong>Email:</strong> email, email address, e-mail, mail, email id, e mail, emailaddress</li>
+                <li><strong>First Name:</strong> first name, firstname, first_name, given name, fname, name, first, givenname, given_name, forename, christian name</li>
+                <li><strong>Last Name:</strong> last name, lastname, last_name, surname, family name, lname, last, familyname, family_name, sur name</li>
+                <li><strong>Mobile Number:</strong> mobile, mobile number, phone, phone number, cell, cell phone, contact, mobile_number, mobile no, phone no, contact no, tel, telephone, cellphone, cell_phone, contact number, contact_number, number, mobilenumber, phonenumber, mobile num, phone num</li>
+            </ul>
+            <p><em>Note: Column names are case-insensitive and special characters are ignored (e.g., "First_Name", "Mobile No.", "PHONE" will all work)</em></p>
+            
             <p><strong>Email format requirements:</strong></p>
             <ul>
                 <li>Must contain exactly one @ symbol</li>

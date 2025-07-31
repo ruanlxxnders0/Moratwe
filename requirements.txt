@@ -1,6 +1,5 @@
 amqp==5.3.1
 asgiref==3.8.1
-awsebcli
 billiard==4.2.1
 blessed==1.20.0
 boto3==1.37.18
@@ -55,7 +54,6 @@ uritemplate==4.1.1
 urllib3==1.26.20
 vine==5.1.0
 wcwidth==0.2.13
-web-vitals==0.2.3
 whitenoise==6.6.0
 werkzeug==3.0.1
 sendgrid==6.11.0

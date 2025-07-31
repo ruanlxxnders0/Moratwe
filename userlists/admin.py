@@ -35,10 +35,17 @@ class UserListAdmin(admin.ModelAdmin):
 
     def get_mapped_column(self, df_columns, possible_names):
         """Helper function to find the actual column name from possible variations"""
-        df_columns_lower = [col.lower().strip() for col in df_columns]
+        # Normalize column names by removing special characters, converting to lowercase
+        def normalize_name(name):
+            return re.sub(r'[^a-zA-Z0-9\s]', '', str(name).lower().strip()).replace('  ', ' ')
+        
+        df_columns_normalized = [normalize_name(col) for col in df_columns]
+        
         for name in possible_names:
-            if name.lower() in df_columns_lower:
-                return df_columns[df_columns_lower.index(name.lower())]
+            # Normalize the search name the same way
+            search_name = normalize_name(name)
+            if search_name in df_columns_normalized:
+                return df_columns[df_columns_normalized.index(search_name)]
         return None
 
     def upload_excel_view(self, request):
@@ -48,11 +55,22 @@ class UserListAdmin(admin.ModelAdmin):
                 user_list_id = request.POST.get('user_list_id')
                 user_list = UserList.objects.get(id=user_list_id)
 
-                # Define possible column names
-                email_columns = ['email', 'email address', 'e-mail', 'mail', 'email id']
-                first_name_columns = ['first name', 'firstname', 'first_name', 'given name']
-                last_name_columns = ['last name', 'lastname', 'last_name', 'surname', 'family name']
-                mobile_columns = ['mobile', 'mobile number', 'phone', 'phone number', 'contact', 'mobile_number']
+                # Define possible column names with extensive variations
+                email_columns = ['email', 'email address', 'e-mail', 'mail', 'email id', 'e mail', 'emailaddress']
+                first_name_columns = [
+                    'first name', 'firstname', 'first_name', 'given name', 'fname', 'name', 'first',
+                    'givenname', 'given_name', 'forename', 'christian name'
+                ]
+                last_name_columns = [
+                    'last name', 'lastname', 'last_name', 'surname', 'family name', 'lname', 'last',
+                    'familyname', 'family_name', 'sur name'
+                ]
+                mobile_columns = [
+                    'mobile', 'mobile number', 'phone', 'phone number', 'cell', 'cell phone', 
+                    'contact', 'mobile_number', 'mobile no', 'phone no', 'contact no', 'tel', 'telephone',
+                    'cellphone', 'cell_phone', 'contact number', 'contact_number', 'number',
+                    'mobilenumber', 'phonenumber', 'mobile num', 'phone num'
+                ]
 
                 # Read the Excel file
                 if excel_file.name.endswith('.csv'):
@@ -62,6 +80,10 @@ class UserListAdmin(admin.ModelAdmin):
 
                 # Clean up the data - convert NaN to empty string and strip whitespace
                 df = df.fillna('')
+                
+                # Show available columns for debugging
+                available_columns = list(df.columns)
+                messages.info(request, f'Available columns in uploaded file: {", ".join(available_columns)}')
                 
                 # Map column names
                 email_col = self.get_mapped_column(df.columns, email_columns)
