@@ -1,5 +1,14 @@
 import os
 from celery import Celery
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Load SendGrid-specific environment variables
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'sendgrid.env')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path=dotenv_path)
 
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'moratwe.settings.development')
