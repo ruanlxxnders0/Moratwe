@@ -220,7 +220,10 @@ class EventRSVPView(views.APIView):
                     rsvp = RSVP.objects.create(
                         event=event,
                         user=request.user,
-                        checked_in=False
+                        status='accepted',
+                        response_date=timezone.now(),
+                        checked_in=False,
+                        is_registered_user=True
                     )
             else:
                 # If not attending and RSVP exists, delete it
