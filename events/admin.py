@@ -176,84 +176,116 @@ class EventAdmin(admin.ModelAdmin):
 
     def rsvp_dashboard(self, request, event_id):
         """Display RSVP statistics and management dashboard for an event."""
-        event = get_object_or_404(Event, id=event_id)
-        
-        # Get RSVP statistics
-        user_rsvps = RSVP.objects.filter(event=event)
-        invitee_rsvps = InviteeRSVP.objects.filter(event=event)
-        
-        # Calculate total invitations sent (count InviteeRSVP records where email was actually sent)
-        invitation_count = invitee_rsvps.filter(email_sent=True).count() # + user_rsvps.count()
-        
-        # Calculate statistics
-        accepted_count = user_rsvps.filter(status='accepted').count() + invitee_rsvps.filter(status='accepted').count()
-        declined_count = user_rsvps.filter(status='declined').count() + invitee_rsvps.filter(status='declined').count()
-        pending_count = user_rsvps.filter(status='pending').count() + invitee_rsvps.filter(status='pending').count()
-        maybe_count = user_rsvps.filter(status='maybe').count()
-        
-        checked_in_count = user_rsvps.filter(checked_in=True).count()
-        
-        # Calculate response rate
-        total_responses = accepted_count + declined_count + maybe_count
-        response_rate = (total_responses / invitation_count * 100) if invitation_count > 0 else 0
-        
-        # Get total guest count (including +1s)
-        total_guests = sum(rsvp.number_of_guests for rsvp in user_rsvps.filter(status='accepted'))
-        total_attendees = accepted_count + total_guests
-        
-        # Get dietary requirements with more comprehensive info
-        dietary_requirements = [
-            (
-                rsvp.user.email,
-                rsvp.user.get_full_name(),
-                rsvp.dietary_requirements,
-                rsvp.number_of_guests
-            )
-            for rsvp in user_rsvps.filter(status='accepted')
-                             .exclude(dietary_requirements='')
-        ]
-        
-        # Get breakaway session statistics
-        sessions = BreakawaySession.objects.filter(event=event)
-        session_stats = []
-        for session in sessions:
-            attendee_count = session.attendees.count()
-            capacity = session.capacity or 0
-            capacity_pct = (attendee_count / capacity * 100) if capacity > 0 else 0
+        try:
+            event = get_object_or_404(Event, id=event_id)
             
-            session_stats.append({
-                'title': session.title,
-                'attendee_count': attendee_count,
-                'capacity': capacity,
-                'capacity_pct': capacity_pct,
-                'is_full': capacity > 0 and attendee_count >= capacity,
-            })
-        
-        # Prepare context for template
-        context = {
-            'admin_site': self.admin_site,
-            'title': f'RSVP Dashboard: {event.title}',
-            'opts': self.model._meta,
-            'event': event,
+            # Get RSVP statistics with error handling
+            try:
+                user_rsvps = RSVP.objects.filter(event=event)
+                invitee_rsvps = InviteeRSVP.objects.filter(event=event)
+            except Exception as e:
+                logger.error(f"Error fetching RSVPs for event {event_id}: {e}")
+                messages.error(request, f"Error fetching RSVP data: {str(e)}")
+                return redirect('admin:events_event_changelist')
             
-            # RSVP Statistics
-            'invitation_count': invitation_count,
-            'accepted_count': accepted_count,
-            'declined_count': declined_count,
-            'pending_count': pending_count,
-            'maybe_count': maybe_count,
-            'checked_in_count': checked_in_count,
-            'response_rate': response_rate,
-            'total_attendees': total_attendees,
-            'dietary_requirements': dietary_requirements,
-            'session_stats': session_stats,
+            # Calculate total invitations sent (count InviteeRSVP records where email was actually sent)
+            invitation_count = invitee_rsvps.filter(email_sent=True).count()
             
-            # Add links to manage RSVPs
-            'rsvp_list_url': reverse('admin:events_rsvp_changelist') + f'?event__id__exact={event_id}',
-            'invitee_rsvp_list_url': reverse('admin:events_inviteersvp_changelist') + f'?event__id__exact={event_id}',
-        }
-        
-        return render(request, 'admin/events/rsvp_dashboard.html', context)
+            # Calculate statistics with safe defaults
+            try:
+                accepted_count = user_rsvps.filter(status='accepted').count() + invitee_rsvps.filter(status='accepted').count()
+                declined_count = user_rsvps.filter(status='declined').count() + invitee_rsvps.filter(status='declined').count()
+                pending_count = user_rsvps.filter(status='pending').count() + invitee_rsvps.filter(status='pending').count()
+                maybe_count = user_rsvps.filter(status='maybe').count()
+                checked_in_count = user_rsvps.filter(checked_in=True).count()
+            except Exception as e:
+                logger.error(f"Error calculating RSVP statistics for event {event_id}: {e}")
+                # Provide safe defaults
+                accepted_count = declined_count = pending_count = maybe_count = checked_in_count = 0
+            
+            # Calculate response rate safely
+            total_responses = accepted_count + declined_count + maybe_count
+            response_rate = (total_responses / invitation_count * 100) if invitation_count > 0 else 0
+            
+            # Get total guest count (including +1s) with error handling
+            try:
+                total_guests = sum(rsvp.number_of_guests for rsvp in user_rsvps.filter(status='accepted'))
+            except Exception as e:
+                logger.error(f"Error calculating guest count for event {event_id}: {e}")
+                total_guests = 0
+            
+            total_attendees = accepted_count + total_guests
+            
+            # Get dietary requirements with error handling
+            dietary_requirements = []
+            try:
+                dietary_requirements = [
+                    (
+                        rsvp.user.email,
+                        rsvp.user.get_full_name(),
+                        rsvp.dietary_requirements,
+                        rsvp.number_of_guests
+                    )
+                    for rsvp in user_rsvps.filter(status='accepted').exclude(dietary_requirements='')
+                ]
+            except Exception as e:
+                logger.error(f"Error fetching dietary requirements for event {event_id}: {e}")
+                dietary_requirements = []
+            
+            # Get breakaway session statistics with error handling
+            session_stats = []
+            try:
+                sessions = BreakawaySession.objects.filter(event=event)
+                for session in sessions:
+                    try:
+                        attendee_count = session.attendees.count()
+                        capacity = session.capacity or 0
+                        capacity_pct = (attendee_count / capacity * 100) if capacity > 0 else 0
+                        
+                        session_stats.append({
+                            'title': session.title,
+                            'attendee_count': attendee_count,
+                            'capacity': capacity,
+                            'capacity_pct': capacity_pct,
+                            'is_full': capacity > 0 and attendee_count >= capacity,
+                        })
+                    except Exception as e:
+                        logger.error(f"Error processing session {session.id} for event {event_id}: {e}")
+                        continue
+            except Exception as e:
+                logger.error(f"Error fetching breakaway sessions for event {event_id}: {e}")
+                session_stats = []
+            
+            # Prepare context for template
+            context = {
+                'admin_site': self.admin_site,
+                'title': f'RSVP Dashboard: {event.title}',
+                'opts': self.model._meta,
+                'event': event,
+                
+                # RSVP Statistics
+                'invitation_count': invitation_count,
+                'accepted_count': accepted_count,
+                'declined_count': declined_count,
+                'pending_count': pending_count,
+                'maybe_count': maybe_count,
+                'checked_in_count': checked_in_count,
+                'response_rate': response_rate,
+                'total_attendees': total_attendees,
+                'dietary_requirements': dietary_requirements,
+                'session_stats': session_stats,
+                
+                # Add links to manage RSVPs
+                'rsvp_list_url': reverse('admin:events_rsvp_changelist') + f'?event__id__exact={event_id}',
+                'invitee_rsvp_list_url': reverse('admin:events_inviteersvp_changelist') + f'?event__id__exact={event_id}',
+            }
+            
+            return render(request, 'admin/events/rsvp_dashboard.html', context)
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in rsvp_dashboard for event {event_id}: {e}")
+            messages.error(request, f"An error occurred while loading the RSVP dashboard: {str(e)}")
+            return redirect('admin:events_event_changelist')
         
     def change_view(self, request, object_id, form_url='', extra_context=None):
         """Add a link to the RSVP dashboard in the event change view."""
