@@ -1,0 +1,43 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{% url 'admin:events_event_changelist' %}" class="addlink">
+            {% trans "View Events" %}
+        </a>
+    </li>
+    {{ block.super }}
+{% endblock %}
+
+{% block content %}
+    <div class="module">
+        <h2>{% trans "Check-in Dashboard" %}</h2>
+        <p>{% trans "Select an event to view its check-in dashboard:" %}</p>
+        
+        <form method="get">
+            <div style="margin-bottom: 1rem;">
+                <label for="event_select">{% trans "Select Event:" %}</label>
+                <select name="event_id" id="event_select" onchange="redirectToDashboard()">
+                    <option value="">{% trans "Choose an event..." %}</option>
+                    {% for event in all_events %}
+                        <option value="{{ event.id }}" {% if event.id|stringformat:"s" == request.GET.event_id %}selected{% endif %}>
+                            {{ event.title }} - {{ event.date|date:"M d, Y" }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+        
+        <script>
+            function redirectToDashboard() {
+                const select = document.getElementById('event_select');
+                if (select.value) {
+                    window.location.href = `/admin/checkin/checkin/checkin-dashboard/${select.value}/`;
+                }
+            }
+        </script>
+    </div>
+    
+    {{ block.super }}
+{% endblock %}

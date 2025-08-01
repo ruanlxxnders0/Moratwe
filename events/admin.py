@@ -260,6 +260,7 @@ class EventAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
         extra_context['show_rsvp_dashboard'] = True
         extra_context['rsvp_dashboard_url'] = reverse('admin:rsvp-dashboard', args=[object_id])
+        extra_context['checkin_dashboard_url'] = reverse('admin:checkin-dashboard', args=[object_id])
         extra_context['batch_process_url'] = reverse('admin:batch-process-rsvps', args=[object_id])
         extra_context['batch_invitations_url'] = reverse('admin:batch-process-invitations', args=[object_id])
         extra_context['batch_tasks_dashboard_url'] = reverse('admin:batch-tasks-dashboard')

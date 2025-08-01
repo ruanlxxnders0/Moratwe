@@ -1,0 +1,416 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n admin_urls %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<style>
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background-color: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        text-align: center;
+    }
+    .stat-card__title {
+        color: #666;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card__value {
+        color: #333;
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+    }
+    .stat-card__subtitle {
+        color: #888;
+        font-size: 0.875rem;
+    }
+    .chart-container {
+        background-color: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .chart-title {
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+        color: #333;
+    }
+    .chart-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+    }
+    .chart-wrapper {
+        position: relative;
+        height: 250px;
+    }
+    .action-button {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        background-color: #79aec8;
+        color: white;
+        text-decoration: none;
+        margin-right: 0.5rem;
+        transition: background-color 0.2s;
+    }
+    .action-button:hover {
+        background-color: #609ab6;
+    }
+    .action-button--green {
+        background-color: #3bbc7e;
+    }
+    .action-button--green:hover {
+        background-color: #2d995f;
+    }
+    .action-button--orange {
+        background-color: #f59e0b;
+    }
+    .action-button--orange:hover {
+        background-color: #d97706;
+    }
+    .action-container {
+        margin-bottom: 1.5rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    th {
+        background-color: #f5f5f5;
+        font-weight: bold;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: white;
+    }
+    .badge--green {
+        background-color: #3bbc7e;
+    }
+    .badge--orange {
+        background-color: #f59e0b;
+    }
+    .badge--red {
+        background-color: #ef4444;
+    }
+    .badge--blue {
+        background-color: #3b82f6;
+    }
+    .real-time-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #3bbc7e;
+        margin-right: 0.5rem;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    .list-container {
+        background-color: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .attendee-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    .attendee-item:last-child {
+        border-bottom: none;
+    }
+    .attendee-info {
+        flex: 1;
+    }
+    .attendee-name {
+        font-weight: bold;
+        color: #333;
+    }
+    .attendee-email {
+        color: #666;
+        font-size: 0.875rem;
+    }
+    .time-stamp {
+        color: #888;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="action-container">
+        <a href="{% url 'admin:events_event_change' event.id %}" class="action-button">
+            {% trans "Back to Event" %}
+        </a>
+        <a href="{% url 'admin:events_rsvp_changelist' %}?event__id__exact={{ event.id }}" class="action-button">
+            {% trans "Manage RSVPs" %}
+        </a>
+        <a href="{% url 'admin:checkin_checkin_changelist' %}" class="action-button">
+            {% trans "View All Check-ins" %}
+        </a>
+        <button onclick="refreshStats()" class="action-button action-button--orange">
+            <span class="real-time-indicator"></span>
+            {% trans "Refresh Stats" %}
+        </button>
+    </div>
+    
+    <!-- Event Details Summary -->
+    <div class="module">
+        <h2>{% trans "Event Check-in Summary" %}</h2>
+        <p>
+            <strong>{% trans "Event" %}:</strong> {{ event.title }}<br>
+            <strong>{% trans "Date" %}:</strong> {{ event.date|date:"F j, Y, P" }}<br>
+            <strong>{% trans "Location" %}:</strong> {{ event.location }}<br>
+            <strong>{% trans "Status" %}:</strong> 
+            {% if event.is_active %}
+                <span class="badge badge--green">{% trans "Active" %}</span>
+            {% else %}
+                <span class="badge badge--red">{% trans "Inactive" %}</span>
+            {% endif %}
+        </p>
+    </div>
+    
+    <!-- Check-in Statistics -->
+    <div class="module">
+        <h2>{% trans "Check-in Statistics" %}</h2>
+        
+        <div class="stats-container" id="stats-container">
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Total Expected" %}</div>
+                <div class="stat-card__value" id="total-expected">{{ total_expected_attendees }}</div>
+                <div class="stat-card__subtitle">{% trans "including guests" %}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Checked In" %}</div>
+                <div class="stat-card__value" id="checked-in-count">{{ checked_in_count }}</div>
+                <div class="stat-card__subtitle">
+                    <span id="checkin-rate">{{ checkin_rate|floatformat:1 }}%</span> {% trans "of accepted" %}
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Not Checked In" %}</div>
+                <div class="stat-card__value" id="not-checked-in-count">{{ not_checked_in_count }}</div>
+                <div class="stat-card__subtitle">{% trans "still pending" %}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Accepted RSVPs" %}</div>
+                <div class="stat-card__value">{{ total_accepted }}</div>
+                <div class="stat-card__subtitle">{% trans "confirmed attendees" %}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-card__title">{% trans "Recent Activity" %}</div>
+                <div class="stat-card__value" id="recent-activity">0</div>
+                <div class="stat-card__subtitle">{% trans "last 5 minutes" %}</div>
+            </div>
+        </div>
+        
+        <!-- Charts -->
+        <div class="chart-row">
+            <div class="chart-container">
+                <h3 class="chart-title">{% trans "Check-in Status" %}</h3>
+                <div class="chart-wrapper">
+                    <canvas id="checkinStatusChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3 class="chart-title">{% trans "Hourly Check-ins (Last 24h)" %}</h3>
+                <div class="chart-wrapper">
+                    <canvas id="hourlyCheckinChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Check-ins -->
+    <div class="chart-row">
+        <div class="list-container">
+            <h3 class="chart-title">{% trans "Recent Check-ins" %}</h3>
+            {% if recent_checkins %}
+                {% for checkin in recent_checkins %}
+                <div class="attendee-item">
+                    <div class="attendee-info">
+                        <div class="attendee-name">{{ checkin.rsvp.user.get_full_name }}</div>
+                        <div class="attendee-email">{{ checkin.rsvp.user.email }}</div>
+                    </div>
+                    <div>
+                        <div class="time-stamp">{{ checkin.checked_in_at|date:"M j, H:i" }}</div>
+                        <div class="time-stamp">{% trans "by" %} {{ checkin.checked_in_by.get_full_name|default:checkin.checked_in_by.email }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>{% trans "No check-ins yet." %}</p>
+            {% endif %}
+        </div>
+        
+        <div class="list-container">
+            <h3 class="chart-title">{% trans "Pending Check-ins" %}</h3>
+            {% if not_checked_in %}
+                {% for rsvp in not_checked_in %}
+                <div class="attendee-item">
+                    <div class="attendee-info">
+                        <div class="attendee-name">{{ rsvp.user.get_full_name }}</div>
+                        <div class="attendee-email">{{ rsvp.user.email }}</div>
+                    </div>
+                    <div>
+                        <span class="badge badge--orange">{% trans "Pending" %}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>{% trans "All attendees have checked in!" %}</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Staff Statistics -->
+    {% if staff_stats %}
+    <div class="module">
+        <h2>{% trans "Check-in Staff Performance" %}</h2>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>{% trans "Staff Member" %}</th>
+                    <th>{% trans "Check-ins Performed" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for staff in staff_stats %}
+                <tr>
+                    <td>
+                        {{ staff.checked_in_by__first_name }} {{ staff.checked_in_by__last_name }}
+                        <div class="attendee-email">{{ staff.checked_in_by__email }}</div>
+                    </td>
+                    <td>
+                        <span class="badge badge--blue">{{ staff.checkin_count }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    let statusChart, hourlyChart;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check-in Status Chart
+        const statusCtx = document.getElementById('checkinStatusChart').getContext('2d');
+        statusChart = new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Checked In', 'Not Checked In'],
+                datasets: [{
+                    data: [{{ checked_in_count }}, {{ not_checked_in_count }}],
+                    backgroundColor: [
+                        '#3bbc7e',  // green
+                        '#f59e0b',  // orange
+                    ],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+        
+        // Hourly Check-ins Chart
+        const hourlyCtx = document.getElementById('hourlyCheckinChart').getContext('2d');
+        const hourlyData = {{ hourly_checkins|safe }};
+        
+        hourlyChart = new Chart(hourlyCtx, {
+            type: 'line',
+            data: {
+                labels: hourlyData.map(item => item.hour),
+                datasets: [{
+                    label: 'Check-ins',
+                    data: hourlyData.map(item => item.count),
+                    borderColor: '#3bbc7e',
+                    backgroundColor: 'rgba(59, 188, 126, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // Auto-refresh every 30 seconds
+        setInterval(refreshStats, 30000);
+    });
+    
+    function refreshStats() {
+        fetch(`/admin/checkin/checkin/checkin-stats-api/{{ event.id }}/`)
+            .then(response => response.json())
+            .then(data => {
+                // Update stat cards
+                document.getElementById('checked-in-count').textContent = data.checked_in_count;
+                document.getElementById('not-checked-in-count').textContent = data.total_accepted - data.checked_in_count;
+                document.getElementById('checkin-rate').textContent = data.checkin_rate.toFixed(1) + '%';
+                document.getElementById('recent-activity').textContent = data.recent_checkins;
+                
+                // Update charts
+                statusChart.data.datasets[0].data = [data.checked_in_count, data.total_accepted - data.checked_in_count];
+                statusChart.update();
+            })
+            .catch(error => console.error('Error refreshing stats:', error));
+    }
+</script>
+{% endblock %}
