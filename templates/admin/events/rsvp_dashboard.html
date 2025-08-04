@@ -232,54 +232,133 @@
     <div class="module">
         <h2>{% trans "Breakaway Sessions" %}</h2>
         
-        <table>
-            <thead>
-                <tr>
-                    <th>{% trans "Session" %}</th>
-                    <th>{% trans "Attendees" %}</th>
-                    <th>{% trans "Capacity" %}</th>
-                    <th>{% trans "Status" %}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for session in session_stats %}
-                <tr>
-                    <td>{{ session.title }}</td>
-                    <td>{{ session.attendee_count }}</td>
-                    <td>
-                        {% if session.capacity > 0 %}
-                            {{ session.attendee_count }} / {{ session.capacity }}
-                        {% else %}
-                            {{ session.attendee_count }} / ∞
+        {% for session in session_stats %}
+        <div class="session-detail" style="margin-bottom: 2rem; border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem;">
+            <h3 style="margin-bottom: 1rem; color: #333; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                {{ session.title }}
+                {% if session.description %}
+                    <span style="font-size: 0.9rem; color: #666; font-weight: normal;"> - {{ session.description }}</span>
+                {% endif %}
+            </h3>
+            
+            <!-- Session Details -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                {% if session.start_time %}
+                <div>
+                    <strong>{% trans "Time:" %}</strong> 
+                    {{ session.start_time|date:"H:i" }}
+                    {% if session.end_time %} - {{ session.end_time|date:"H:i" }}{% endif %}
+                </div>
+                {% endif %}
+                
+                {% if session.location %}
+                <div>
+                    <strong>{% trans "Location:" %}</strong> {{ session.location }}
+                </div>
+                {% endif %}
+                
+                <div>
+                    <strong>{% trans "Capacity:" %}</strong>
+                    {% if session.capacity > 0 %}
+                        {{ session.total_session_attendees }} / {{ session.capacity }}
+                        {% if session.available_spots %}
+                            ({{ session.available_spots }} {% trans "spots available" %})
                         {% endif %}
-                    </td>
-                    <td>
-                        <div class="progress-bar">
-                            {% if session.is_full %}
-                                <div class="progress-bar__fill progress-bar__fill--red" style="width: 100%"></div>
-                            {% elif session.capacity_pct > 80 %}
-                                <div class="progress-bar__fill progress-bar__fill--orange" style="width: {{ session.capacity_pct }}%"></div>
-                            {% elif session.capacity > 0 %}
-                                <div class="progress-bar__fill progress-bar__fill--green" style="width: {{ session.capacity_pct }}%"></div>
-                            {% else %}
-                                <div class="progress-bar__fill progress-bar__fill--green" style="width: 100%"></div>
-                            {% endif %}
-                        </div>
-                        
-                        {% if session.is_full %}
-                            <span class="badge badge--red">{% trans "Full" %}</span>
-                        {% elif session.capacity_pct > 80 %}
-                            <span class="badge badge--orange">{% trans "Almost Full" %}</span>
-                        {% elif session.capacity > 0 %}
-                            <span class="badge badge--green">{% trans "Available" %}</span>
-                        {% else %}
-                            <span class="badge badge--green">{% trans "Unlimited" %}</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    {% else %}
+                        {{ session.total_session_attendees }} / ∞ ({% trans "Unlimited" %})
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <strong>{% trans "Status:" %}</strong>
+                    {% if session.is_full %}
+                        <span class="badge badge--red">{% trans "Full" %}</span>
+                    {% elif session.capacity_pct > 80 %}
+                        <span class="badge badge--orange">{% trans "Almost Full" %}</span>
+                    {% elif session.capacity > 0 %}
+                        <span class="badge badge--green">{% trans "Available" %}</span>
+                    {% else %}
+                        <span class="badge badge--green">{% trans "Unlimited" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            {% if session.capacity > 0 %}
+            <div style="margin-bottom: 1.5rem;">
+                <div class="progress-bar" style="height: 20px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden;">
+                    {% if session.is_full %}
+                        <div class="progress-bar__fill progress-bar__fill--red" style="width: 100%; height: 100%; background-color: #dc3545; transition: width 0.3s ease;"></div>
+                    {% elif session.capacity_pct > 80 %}
+                        <div class="progress-bar__fill progress-bar__fill--orange" style="width: {{ session.capacity_pct }}%; height: 100%; background-color: #fd7e14; transition: width 0.3s ease;"></div>
+                    {% else %}
+                        <div class="progress-bar__fill progress-bar__fill--green" style="width: {{ session.capacity_pct }}%; height: 100%; background-color: #28a745; transition: width 0.3s ease;"></div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Attendees List -->
+            {% if session.attendees %}
+            <div>
+                <h4 style="margin-bottom: 1rem; color: #555;">
+                    {% trans "Attendees" %} ({{ session.attendee_count }} {% trans "registrations" %}, {{ session.total_session_attendees }} {% trans "total including guests" %})
+                </h4>
+                
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="background-color: #f8f9fa;">
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #dee2e6;">{% trans "Name" %}</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #dee2e6;">{% trans "Email" %}</th>
+                                <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #dee2e6;">{% trans "Guests" %}</th>
+                                <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #dee2e6;">{% trans "Total" %}</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #dee2e6;">{% trans "Dietary Requirements" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attendee in session.attendees %}
+                            <tr style="{% cycle 'background-color: #ffffff;' 'background-color: #f8f9fa;' %}">
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #dee2e6;">
+                                    <strong>{{ attendee.name }}</strong>
+                                </td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #dee2e6;">
+                                    <a href="mailto:{{ attendee.email }}" style="color: #007bff; text-decoration: none;">
+                                        {{ attendee.email }}
+                                    </a>
+                                </td>
+                                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid #dee2e6;">
+                                    {% if attendee.number_of_guests > 0 %}
+                                        +{{ attendee.number_of_guests }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid #dee2e6;">
+                                    <strong>{{ attendee.total_attendees }}</strong>
+                                </td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #dee2e6;">
+                                    {% if attendee.dietary_requirements != "None" %}
+                                        <span style="background-color: #fff3cd; color: #856404; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                                            {{ attendee.dietary_requirements }}
+                                        </span>
+                                    {% else %}
+                                        <span style="color: #6c757d; font-style: italic;">{% trans "None" %}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 2rem; color: #6c757d; background-color: #f8f9fa; border-radius: 8px;">
+                <p style="margin: 0; font-style: italic;">{% trans "No attendees have registered for this session yet." %}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
     </div>
     {% endif %}
     

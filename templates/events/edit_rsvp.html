@@ -104,8 +104,8 @@
                                 <p class="text-gray-500">{{ session.description }}</p>
                                 <p class="text-sm text-gray-500">
                                     {{ session.start_time|date:"g:i A" }} - {{ session.end_time|date:"g:i A" }}
-                                    {% if session.capacity %}
-                                        ({{ session.attendees.count }}/{{ session.capacity }} attendees)
+                                                                {% if session.max_attendees %}
+                                ({{ session.attendees.count }}/{{ session.max_attendees }} attendees)
                                     {% endif %}
                                 </p>
                             </div>
