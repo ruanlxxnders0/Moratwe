@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Event, BreakawaySession, RSVP
 from users.serializers import CustomUserSerializer
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
@@ -169,10 +170,10 @@ class RSVPSerializer(serializers.ModelSerializer):
     class Meta:
         model = RSVP
         fields = (
-            'id', 'event', 'event_id', 'user', 'qr_code', 'qr_code_url', 'qr_code_data',
-            'selected_sessions', 'session_ids', 'created_at', 'checked_in'
+            'id', 'event', 'event_id', 'user', 'status', 'response_date', 'qr_code', 'qr_code_url', 'qr_code_data',
+            'selected_sessions', 'session_ids', 'created_at', 'checked_in', 'number_of_guests', 'dietary_requirements'
         )
-        read_only_fields = ('id', 'user', 'qr_code', 'qr_code_data', 'created_at', 'checked_in')
+        read_only_fields = ('id', 'user', 'qr_code', 'qr_code_data', 'created_at', 'checked_in', 'response_date')
     
     def get_qr_code_url(self, obj):
         """
@@ -190,6 +191,12 @@ class RSVPSerializer(serializers.ModelSerializer):
         """
         # Set the user field to the current user
         validated_data['user'] = self.context['request'].user
+        
+        # If no status is provided, default to 'accepted' for API-created RSVPs
+        if 'status' not in validated_data:
+            validated_data['status'] = 'accepted'
+            validated_data['response_date'] = timezone.now()
+            validated_data['is_registered_user'] = True
         
         # Create the RSVP
         rsvp = super().create(validated_data)

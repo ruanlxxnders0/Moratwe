@@ -360,7 +360,6 @@ def process_invitations_task(self, task_id, event_id, batch_size):
             
             # Update counts
             emails_sent += batch_emails_sent
-            processed_count += len(current_batch)
             
             # Log batch completion
             logger.info(f"Completed batch starting at {offset-current_batch_size}, sent {batch_emails_sent} emails, skipped {batch_emails_skipped}, failed: {len(failed_emails)}")

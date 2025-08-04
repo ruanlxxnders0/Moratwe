@@ -176,84 +176,145 @@ class EventAdmin(admin.ModelAdmin):
 
     def rsvp_dashboard(self, request, event_id):
         """Display RSVP statistics and management dashboard for an event."""
-        event = get_object_or_404(Event, id=event_id)
-        
-        # Get RSVP statistics
-        user_rsvps = RSVP.objects.filter(event=event)
-        invitee_rsvps = InviteeRSVP.objects.filter(event=event)
-        
-        # Calculate total invitations sent (count InviteeRSVP records where email was actually sent)
-        invitation_count = invitee_rsvps.filter(email_sent=True).count() # + user_rsvps.count()
-        
-        # Calculate statistics
-        accepted_count = user_rsvps.filter(status='accepted').count() + invitee_rsvps.filter(status='accepted').count()
-        declined_count = user_rsvps.filter(status='declined').count() + invitee_rsvps.filter(status='declined').count()
-        pending_count = user_rsvps.filter(status='pending').count() + invitee_rsvps.filter(status='pending').count()
-        maybe_count = user_rsvps.filter(status='maybe').count()
-        
-        checked_in_count = user_rsvps.filter(checked_in=True).count()
-        
-        # Calculate response rate
-        total_responses = accepted_count + declined_count + maybe_count
-        response_rate = (total_responses / invitation_count * 100) if invitation_count > 0 else 0
-        
-        # Get total guest count (including +1s)
-        total_guests = sum(rsvp.number_of_guests for rsvp in user_rsvps.filter(status='accepted'))
-        total_attendees = accepted_count + total_guests
-        
-        # Get dietary requirements with more comprehensive info
-        dietary_requirements = [
-            (
-                rsvp.user.email,
-                rsvp.user.get_full_name(),
-                rsvp.dietary_requirements,
-                rsvp.number_of_guests
-            )
-            for rsvp in user_rsvps.filter(status='accepted')
-                             .exclude(dietary_requirements='')
-        ]
-        
-        # Get breakaway session statistics
-        sessions = BreakawaySession.objects.filter(event=event)
-        session_stats = []
-        for session in sessions:
-            attendee_count = session.attendees.count()
-            capacity = session.capacity or 0
-            capacity_pct = (attendee_count / capacity * 100) if capacity > 0 else 0
+        try:
+            event = get_object_or_404(Event, id=event_id)
             
-            session_stats.append({
-                'title': session.title,
-                'attendee_count': attendee_count,
-                'capacity': capacity,
-                'capacity_pct': capacity_pct,
-                'is_full': capacity > 0 and attendee_count >= capacity,
-            })
-        
-        # Prepare context for template
-        context = {
-            'admin_site': self.admin_site,
-            'title': f'RSVP Dashboard: {event.title}',
-            'opts': self.model._meta,
-            'event': event,
+            # Get RSVP statistics with error handling
+            try:
+                user_rsvps = RSVP.objects.filter(event=event)
+                invitee_rsvps = InviteeRSVP.objects.filter(event=event)
+            except Exception as e:
+                logger.error(f"Error fetching RSVPs for event {event_id}: {e}")
+                messages.error(request, f"Error fetching RSVP data: {str(e)}")
+                return redirect('admin:events_event_changelist')
             
-            # RSVP Statistics
-            'invitation_count': invitation_count,
-            'accepted_count': accepted_count,
-            'declined_count': declined_count,
-            'pending_count': pending_count,
-            'maybe_count': maybe_count,
-            'checked_in_count': checked_in_count,
-            'response_rate': response_rate,
-            'total_attendees': total_attendees,
-            'dietary_requirements': dietary_requirements,
-            'session_stats': session_stats,
+            # Calculate total invitations sent (count InviteeRSVP records where email was actually sent)
+            invitation_count = invitee_rsvps.filter(email_sent=True).count()
             
-            # Add links to manage RSVPs
-            'rsvp_list_url': reverse('admin:events_rsvp_changelist') + f'?event__id__exact={event_id}',
-            'invitee_rsvp_list_url': reverse('admin:events_inviteersvp_changelist') + f'?event__id__exact={event_id}',
-        }
-        
-        return render(request, 'admin/events/rsvp_dashboard.html', context)
+            # Calculate statistics with safe defaults
+            try:
+                accepted_count = user_rsvps.filter(status='accepted').count() + invitee_rsvps.filter(status='accepted').count()
+                declined_count = user_rsvps.filter(status='declined').count() + invitee_rsvps.filter(status='declined').count()
+                pending_count = user_rsvps.filter(status='pending').count() + invitee_rsvps.filter(status='pending').count()
+                maybe_count = user_rsvps.filter(status='maybe').count()
+                checked_in_count = user_rsvps.filter(checked_in=True).count()
+            except Exception as e:
+                logger.error(f"Error calculating RSVP statistics for event {event_id}: {e}")
+                # Provide safe defaults
+                accepted_count = declined_count = pending_count = maybe_count = checked_in_count = 0
+            
+            # Calculate response rate safely
+            total_responses = accepted_count + declined_count + maybe_count
+            response_rate = (total_responses / invitation_count * 100) if invitation_count > 0 else 0
+            
+            # Get total guest count (including +1s) with error handling
+            try:
+                total_guests = sum(rsvp.number_of_guests for rsvp in user_rsvps.filter(status='accepted'))
+            except Exception as e:
+                logger.error(f"Error calculating guest count for event {event_id}: {e}")
+                total_guests = 0
+            
+            total_attendees = accepted_count + total_guests
+            
+            # Get dietary requirements with error handling
+            dietary_requirements = []
+            try:
+                dietary_requirements = [
+                    (
+                        rsvp.user.email,
+                        rsvp.user.get_full_name(),
+                        rsvp.dietary_requirements,
+                        rsvp.number_of_guests
+                    )
+                    for rsvp in user_rsvps.filter(status='accepted').exclude(dietary_requirements='')
+                ]
+            except Exception as e:
+                logger.error(f"Error fetching dietary requirements for event {event_id}: {e}")
+                dietary_requirements = []
+            
+            # Get breakaway session statistics with detailed attendee info
+            session_stats = []
+            try:
+                sessions = BreakawaySession.objects.filter(event=event)
+                for session in sessions:
+                    try:
+                        # Get RSVPs that selected this session
+                        session_rsvps = user_rsvps.filter(
+                            status='accepted',
+                            selected_sessions=session
+                        ).select_related('user')
+                        
+                        attendee_count = session_rsvps.count()
+                        capacity = session.max_attendees or 0
+                        capacity_pct = (attendee_count / capacity * 100) if capacity > 0 else 0
+                        
+                        # Get detailed attendee information
+                        attendees = []
+                        for rsvp in session_rsvps:
+                            attendees.append({
+                                'name': rsvp.user.get_full_name(),
+                                'email': rsvp.user.email,
+                                'number_of_guests': rsvp.number_of_guests,
+                                'total_attendees': 1 + rsvp.number_of_guests,  # User + guests
+                                'dietary_requirements': rsvp.dietary_requirements or 'None',
+                                'rsvp_id': rsvp.id,
+                            })
+                        
+                        # Calculate total attendees including guests
+                        total_session_attendees = sum(attendee['total_attendees'] for attendee in attendees)
+                        
+                        session_stats.append({
+                            'id': session.id,
+                            'title': session.title,
+                            'description': session.description,
+                            'start_time': session.start_time,
+                            'end_time': session.end_time,
+                            'location': session.location,
+                            'attendee_count': attendee_count,
+                            'total_session_attendees': total_session_attendees,  # Including guests
+                            'capacity': capacity,
+                            'capacity_pct': capacity_pct,
+                            'is_full': capacity > 0 and total_session_attendees >= capacity,
+                            'attendees': attendees,
+                            'available_spots': max(0, capacity - total_session_attendees) if capacity > 0 else None,
+                        })
+                    except Exception as e:
+                        logger.error(f"Error processing session {session.id} for event {event_id}: {e}")
+                        continue
+            except Exception as e:
+                logger.error(f"Error fetching breakaway sessions for event {event_id}: {e}")
+                session_stats = []
+            
+            # Prepare context for template
+            context = {
+                'admin_site': self.admin_site,
+                'title': f'RSVP Dashboard: {event.title}',
+                'opts': self.model._meta,
+                'event': event,
+                
+                # RSVP Statistics
+                'invitation_count': invitation_count,
+                'accepted_count': accepted_count,
+                'declined_count': declined_count,
+                'pending_count': pending_count,
+                'maybe_count': maybe_count,
+                'checked_in_count': checked_in_count,
+                'response_rate': response_rate,
+                'total_attendees': total_attendees,
+                'dietary_requirements': dietary_requirements,
+                'session_stats': session_stats,
+                
+                # Add links to manage RSVPs
+                'rsvp_list_url': reverse('admin:events_rsvp_changelist') + f'?event__id__exact={event_id}',
+                'invitee_rsvp_list_url': reverse('admin:events_inviteersvp_changelist') + f'?event__id__exact={event_id}',
+            }
+            
+            return render(request, 'admin/events/rsvp_dashboard.html', context)
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in rsvp_dashboard for event {event_id}: {e}")
+            messages.error(request, f"An error occurred while loading the RSVP dashboard: {str(e)}")
+            return redirect('admin:events_event_changelist')
         
     def change_view(self, request, object_id, form_url='', extra_context=None):
         """Add a link to the RSVP dashboard in the event change view."""
@@ -1473,10 +1534,92 @@ class EventAdmin(admin.ModelAdmin):
 
 @admin.register(BreakawaySession)
 class BreakawaySessionAdmin(admin.ModelAdmin):
-    list_display = ('title', 'event', 'start_time', 'end_time')
+    list_display = ('title', 'event', 'start_time', 'end_time', 'get_attendee_count')
     list_filter = ('event',)
     search_fields = ('title', 'description')
     filter_horizontal = ('panelists',)
+    readonly_fields = ('get_attendees_display',)
+    
+    def get_attendee_count(self, obj):
+        """Display the number of attendees who selected this session"""
+        count = obj.attendees.filter(status='accepted').count()
+        total_with_guests = sum(
+            1 + rsvp.number_of_guests 
+            for rsvp in obj.attendees.filter(status='accepted')
+        )
+        return f"{count} attendees ({total_with_guests} total incl. guests)"
+    get_attendee_count.short_description = 'Attendees'
+    
+    def get_attendees_display(self, obj):
+        """Display formatted list of attendees who selected this session"""
+        if not obj.pk:
+            return "Save the session first to see attendees."
+        
+        # Get all accepted RSVPs that selected this session
+        attendees = obj.attendees.filter(status='accepted').select_related('user').order_by('user__first_name', 'user__last_name')
+        
+        if not attendees.exists():
+            return mark_safe('<div style="padding: 20px; background-color: #1a1a1a; border-radius: 4px; border: 1px solid #555;"><p style="font-style: italic; color: #ccc; margin: 0; text-align: center;">No attendees have selected this session yet.</p></div>')
+        
+        # Calculate totals
+        total_registrations = attendees.count()
+        total_with_guests = sum(1 + rsvp.number_of_guests for rsvp in attendees)
+        
+        # Build HTML display
+        html_parts = [
+            f'<div style="margin-bottom: 15px; color: #fff;"><strong>Session Attendees ({total_registrations} registrations, {total_with_guests} total including guests)</strong></div>',
+            '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #555; border-radius: 4px; background-color: #1a1a1a;">',
+            '<table style="width: 100%; border-collapse: collapse; font-size: 13px; color: #fff; background-color: #1a1a1a;">',
+            '<thead style="background-color: #2c2c2c; color: #fff; position: sticky; top: 0;">',
+            '<tr>',
+            '<th style="padding: 10px 8px; text-align: left; border-bottom: 1px solid #555; font-weight: bold; color: #fff;">Name</th>',
+            '<th style="padding: 10px 8px; text-align: left; border-bottom: 1px solid #555; font-weight: bold; color: #fff;">Email</th>',
+            '<th style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #555; font-weight: bold; color: #fff;">Guests</th>',
+            '<th style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #555; font-weight: bold; color: #fff;">Total</th>',
+            '<th style="padding: 10px 8px; text-align: left; border-bottom: 1px solid #555; font-weight: bold; color: #fff;">Dietary Requirements</th>',
+            '</tr>',
+            '</thead>',
+            '<tbody>'
+        ]
+        
+        for i, rsvp in enumerate(attendees):
+            bg_color = '#1a1a1a' if i % 2 == 0 else '#2a2a2a'
+            dietary = rsvp.dietary_requirements.strip() if rsvp.dietary_requirements else 'None'
+            
+            # Prepare dietary display
+            dietary_display = dietary if dietary != "None" else '<span style="color: #888; font-style: italic;">None</span>'
+            guest_display = "+" + str(rsvp.number_of_guests) if rsvp.number_of_guests > 0 else "-"
+            
+            html_parts.extend([
+                f'<tr style="background-color: {bg_color};">',
+                f'<td style="padding: 10px 8px; border-bottom: 1px solid #555; color: #fff;"><strong>{rsvp.user.get_full_name()}</strong></td>',
+                f'<td style="padding: 10px 8px; border-bottom: 1px solid #555; color: #fff;"><a href="mailto:{rsvp.user.email}" style="color: #79aec8; text-decoration: none;">{rsvp.user.email}</a></td>',
+                f'<td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #555; color: #fff;">{guest_display}</td>',
+                f'<td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #555; color: #fff;"><strong>{1 + rsvp.number_of_guests}</strong></td>',
+                f'<td style="padding: 10px 8px; border-bottom: 1px solid #555; color: #fff;">{dietary_display}</td>',
+                '</tr>'
+            ])
+        
+        # Prepare capacity status
+        if obj.max_attendees and total_with_guests >= obj.max_attendees:
+            capacity_status = '<span style="color: #ff6b6b; font-weight: bold;">⚠️ FULL</span>'
+        elif obj.max_attendees:
+            capacity_status = f'<span style="color: #51cf66;">({obj.max_attendees - total_with_guests} spots available)</span>'
+        else:
+            capacity_status = ''
+        
+        html_parts.extend([
+            '</tbody>',
+            '</table>',
+            '</div>',
+            f'<div style="margin-top: 10px; font-size: 12px; color: #ccc; padding: 8px; background-color: #2a2a2a; border-radius: 3px; border: 1px solid #555;">',
+            f'<strong style="color: #fff;">Capacity:</strong> {total_with_guests}/{obj.max_attendees if obj.max_attendees else "Unlimited"} {capacity_status}',
+            '</div>'
+        ])
+        
+        return mark_safe(''.join(html_parts))
+    
+    get_attendees_display.short_description = 'Attendees who selected this session'
 
 
 @admin.register(RSVP)
