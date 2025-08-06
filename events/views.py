@@ -103,9 +103,10 @@ def rsvp_decline(request):
 def register_from_invitation(request):
     if request.method == 'POST':
         email = request.session.get('invitee_email')
-        first_name = request.session.get('invitee_first_name')
-        last_name = request.session.get('invitee_last_name')
-        mobile = request.session.get('invitee_mobile')
+        # Allow users to edit their name and mobile, but fallback to session data
+        first_name = request.POST.get('first_name') or request.session.get('invitee_first_name')
+        last_name = request.POST.get('last_name') or request.session.get('invitee_last_name')
+        mobile = request.POST.get('mobile') or request.session.get('invitee_mobile')
         event_id = request.session.get('event_id')
         token = request.session.get('rsvp_token')
         password = request.POST.get('password')
