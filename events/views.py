@@ -150,8 +150,8 @@ def register_from_invitation(request):
                 'SITE_URL': settings.SITE_URL.rstrip('/')
             })
         
-        # Log the user in
-        login(request, user)
+        # Log the user in (specify backend since we have multiple backends)
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
         
         try:
             invitee_rsvp = InviteeRSVP.objects.get(token=token)
@@ -163,16 +163,37 @@ def register_from_invitation(request):
             invitee_rsvp.save()
             
             # Create user RSVP
-            rsvp = RSVP.objects.create(
-                event=event,
-                user=user,
-                status='accepted',
-                response_date=timezone.now(),
-                is_registered_user=True
-            )
+            try:
+                rsvp = RSVP.objects.create(
+                    event=event,
+                    user=user,
+                    status='accepted',
+                    response_date=timezone.now(),
+                    is_registered_user=True
+                )
+            except IntegrityError as e:
+                # Handle potential duplicate RSVP
+                logger.warning(f"RSVP creation conflict for user {user.id} and event {event.id}: {e}")
+                rsvp, created = RSVP.objects.get_or_create(
+                    event=event,
+                    user=user,
+                    defaults={
+                        'status': 'accepted',
+                        'response_date': timezone.now(),
+                        'is_registered_user': True
+                    }
+                )
+                if not created:
+                    rsvp.status = 'accepted'
+                    rsvp.response_date = timezone.now()
+                    rsvp.save()
             
-            # Send confirmation email
-            send_confirmation_email(user, event, request)
+            # Send confirmation email (don't let email errors block the flow)
+            try:
+                send_confirmation_email(user, event, request)
+            except Exception as e:
+                logger.error(f"Error sending confirmation email to {user.email}: {e}")
+                # Continue with the flow even if email fails
             
             # Clear session data
             for key in ['invitee_email', 'invitee_first_name', 'invitee_last_name', 
@@ -184,6 +205,11 @@ def register_from_invitation(request):
             
         except InviteeRSVP.DoesNotExist:
             messages.error(request, 'Invalid invitation.')
+            return redirect('events:home')
+        except Exception as e:
+            # Handle any other unexpected errors during RSVP processing
+            logger.error(f"Unexpected error during RSVP processing for user {user.id}: {e}")
+            messages.warning(request, 'Registration successful, but there was an issue processing your RSVP. Please contact support if needed.')
             return redirect('events:home')
     
     return render(request, 'events/register_from_invitation.html', {
