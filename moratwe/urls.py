@@ -153,6 +153,9 @@ urlpatterns = [
     # Events
     path('events/', include('events.urls')),
     
+    # Users
+    path('users/', include('users.urls')),
+    
     # Swagger documentation
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
