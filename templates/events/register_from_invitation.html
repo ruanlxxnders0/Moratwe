@@ -56,11 +56,11 @@
             </div>
             
             <div>
-                <label for="mobile" class="block text-sm font-medium text-gray-700">Mobile Number</label>
-                <input type="tel" name="mobile" id="mobile" value="{{ mobile }}" 
+                <label for="mobile" class="block text-sm font-medium text-gray-700">Mobile Number <span class="text-gray-500 text-sm">(optional)</span></label>
+                <input type="tel" name="mobile" id="mobile" value="{{ mobile|default:'' }}" 
                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                       placeholder="e.g., +27 12 345 6789">
-                <p class="mt-1 text-sm text-gray-500">Include country code if international</p>
+                       placeholder="e.g., 012 345 6789 (optional)">
+                <p class="mt-1 text-sm text-gray-500">You can add or update your phone number here. Include country code if international.</p>
             </div>
             
             <div>

@@ -106,7 +106,10 @@ def register_from_invitation(request):
         # Allow users to edit their name and mobile, but fallback to session data
         first_name = request.POST.get('first_name') or request.session.get('invitee_first_name')
         last_name = request.POST.get('last_name') or request.session.get('invitee_last_name')
-        mobile = request.POST.get('mobile') or request.session.get('invitee_mobile')
+        # Handle mobile number: use POST data if provided, otherwise fallback to session
+        mobile = request.POST.get('mobile', '').strip()
+        if not mobile:
+            mobile = request.session.get('invitee_mobile', '')
         event_id = request.session.get('event_id')
         token = request.session.get('rsvp_token')
         password = request.POST.get('password')
@@ -117,12 +120,15 @@ def register_from_invitation(request):
         
         # Create new user
         try:
+            # Handle empty phone number properly
+            phone_number = mobile.strip() if mobile and mobile.strip() else None
+            
             user = CustomUser.objects.create_user(
                 email=email,
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
-                phone_number=mobile
+                phone_number=phone_number
             )
         except IntegrityError as e:
             # Handle database integrity errors (like duplicate phone numbers)
