@@ -20,6 +20,8 @@ from django.utils.html import strip_tags
 from django.contrib.auth.decorators import login_required
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+from .utils import get_calendar_email_html, generate_calendar_links
+from django.http import HttpResponse
 import os
 
 logger = logging.getLogger(__name__)
@@ -270,6 +272,8 @@ def send_confirmation_email(user, event, request=None):
                 </div>
                 {% endif %}
                 
+                {{ calendar_links|safe }}
+                
                 <p>You can view the event details and manage your RSVP at any time by visiting:</p>
                 <p><a href="{{ event_url }}" style="color: #007bff;">{{ event_url }}</a></p>
                 
@@ -294,12 +298,16 @@ def send_confirmation_email(user, event, request=None):
         else:
             qr_code_url = f"{settings.SITE_URL}{rsvp.qr_code.url}"
 
+    # Generate calendar links for email
+    calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+    
     context = Context({
         'first_name': user.first_name or 'Guest',
         'last_name': user.last_name or '',
         'event': event,
         'qr_code_url': qr_code_url,
         'event_url': f"{settings.SITE_URL.rstrip('/')}{reverse('events:event_detail', args=[event.id])}",
+        'calendar_links': calendar_links_html,
         'SITE_URL': settings.SITE_URL.rstrip('/')
     })
     
@@ -484,3 +492,77 @@ def edit_rsvp(request, event_id):
         'rsvp': rsvp,
         'SITE_URL': settings.SITE_URL.rstrip('/')
     })
+
+
+def event_calendar_ics(request, event_id):
+    """Serve ICS calendar file for an event."""
+    try:
+        event = Event.objects.get(id=event_id)
+    except Event.DoesNotExist:
+        return HttpResponse("Event not found", status=404)
+    
+    # Generate calendar links to get the ICS content
+    calendar_links = generate_calendar_links(event, settings.SITE_URL.rstrip('/'))
+    
+    if not calendar_links or 'ics_content' not in calendar_links:
+        return HttpResponse("Calendar data not available", status=404)
+    
+    # Return the ICS file
+    response = HttpResponse(
+        calendar_links['ics_content'],
+        content_type='text/calendar; charset=utf-8'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{calendar_links["ics_filename"]}"'
+    
+    return response
+
+
+def send_save_the_date_email(user, event, request=None):
+    """Send a save the date email for an event."""
+    from django.template import Template, Context
+    from django.urls import reverse
+    from django.conf import settings
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail
+    from .utils import get_calendar_email_html
+    import os
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Try to get a save the date template
+    template = EmailTemplate.objects.filter(name='Save the Date').first()
+    if not template:
+        logger.error("Save the Date template not found")
+        return False
+    
+    # Generate calendar links for email
+    calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+    
+    context = Context({
+        'first_name': user.first_name or 'Guest',
+        'last_name': user.last_name or '',
+        'event': event,
+        'event_url': f"{settings.SITE_URL.rstrip('/')}{reverse('events:event_detail', args=[event.id])}",
+        'calendar_links': calendar_links_html,
+        'SITE_URL': settings.SITE_URL.rstrip('/')
+    })
+    
+    subject = Template(template.subject).render(context)
+    html_content = Template(template.content).render(context)
+
+    message = Mail(
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to_emails=user.email,
+        subject=subject,
+        html_content=html_content
+    )
+    
+    try:
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        logger.info(f"SendGrid save the date email sent to {user.email}, status code: {response.status_code}")
+        return True
+    except Exception as e:
+        logger.error(f"Error sending save the date email via SendGrid to {user.email}: {e}")
+        return False

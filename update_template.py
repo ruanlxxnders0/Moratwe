@@ -109,6 +109,8 @@ html_template = '''<!DOCTYPE html>
             <a href="{{ rsvp_accept_url }}" class="button accept">Accept</a>
             <a href="{{ rsvp_decline_url }}" class="button decline">Decline</a>
         </div>
+        
+        {{ calendar_links|safe }}
 
         <div class="app-stores">
             <h3>Get the Moratwe App</h3>
