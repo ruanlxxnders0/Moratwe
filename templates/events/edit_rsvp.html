@@ -63,7 +63,7 @@
                         <select id="dietary_requirements_select" name="dietary_requirements_select" 
                                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 onchange="toggleOtherDietaryField()">
-                            <option value="" {% if not rsvp.dietary_requirements %}selected{% endif %}>None</option>
+                            <option value="" {% if not rsvp.dietary_requirements or rsvp.dietary_requirements == 'None' %}selected{% endif %}>None</option>
                             <option value="Vegetarian" {% if rsvp.dietary_requirements == 'Vegetarian' %}selected{% endif %}>Vegetarian</option>
                             <option value="Vegan" {% if rsvp.dietary_requirements == 'Vegan' %}selected{% endif %}>Vegan</option>
                             <option value="Gluten-Free" {% if rsvp.dietary_requirements == 'Gluten-Free' %}selected{% endif %}>Gluten-Free</option>
@@ -72,11 +72,11 @@
                             <option value="Shellfish Allergy" {% if rsvp.dietary_requirements == 'Shellfish Allergy' %}selected{% endif %}>Shellfish Allergy</option>
                             <option value="Halal" {% if rsvp.dietary_requirements == 'Halal' %}selected{% endif %}>Halal</option>
                             <option value="Kosher" {% if rsvp.dietary_requirements == 'Kosher' %}selected{% endif %}>Kosher</option>
-                            <option value="other" {% if rsvp.dietary_requirements and rsvp.dietary_requirements not in 'Vegetarian,Vegan,Gluten-Free,Dairy-Free,Nut Allergy,Shellfish Allergy,Halal,Kosher' %}selected{% endif %}>Other (please specify)</option>
+                            <option value="other" {% if rsvp.dietary_requirements and rsvp.dietary_requirements not in 'None,Vegetarian,Vegan,Gluten-Free,Dairy-Free,Nut Allergy,Shellfish Allergy,Halal,Kosher' %}selected{% endif %}>Other (please specify)</option>
                         </select>
                     </div>
                     
-                    <div id="other_dietary_container" class="mt-3" {% if not rsvp.dietary_requirements or rsvp.dietary_requirements in 'Vegetarian,Vegan,Gluten-Free,Dairy-Free,Nut Allergy,Shellfish Allergy,Halal,Kosher' %}style="display: none;"{% endif %}>
+                    <div id="other_dietary_container" class="mt-3" {% if not rsvp.dietary_requirements or rsvp.dietary_requirements in 'None,Vegetarian,Vegan,Gluten-Free,Dairy-Free,Nut Allergy,Shellfish Allergy,Halal,Kosher' %}style="display: none;"{% endif %}>
                         <label for="dietary_requirements" class="block text-sm font-medium text-gray-700">Please specify your dietary requirements</label>
                         <div class="mt-1">
                             <textarea id="dietary_requirements" name="dietary_requirements" rows="3" 

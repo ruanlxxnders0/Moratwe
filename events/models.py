@@ -156,6 +156,18 @@ class RSVP(models.Model):
         if (is_new or not self.qr_code) and self.status == 'accepted':
             self.generate_qr_code()
     
+    @property
+    def rsvp_details_completed(self):
+        """
+        Check if the user has completed their RSVP details.
+        An RSVP is considered complete if the user has made a conscious decision
+        about dietary requirements (even if "None" is selected).
+        """
+        # If dietary_requirements is not empty, it means they've been through the form
+        # Note: We check for any value, including "None" which would be set when they 
+        # explicitly select "None" in the dropdown
+        return bool(self.dietary_requirements)
+    
     def generate_qr_code(self):
         """
         Generate a QR code for the RSVP.

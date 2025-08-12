@@ -207,8 +207,8 @@ def register_from_invitation(request):
                        'invitee_mobile', 'event_id', 'rsvp_token']:
                 request.session.pop(key, None)
             
-            messages.success(request, 'Registration successful! You have accepted the invitation.')
-            return redirect('events:event_detail', event_id=event.id)
+            messages.success(request, 'Registration successful! Please complete your RSVP details below.')
+            return redirect('events:edit_rsvp', event_id=event.id)
             
         except InviteeRSVP.DoesNotExist:
             messages.error(request, 'Invalid invitation.')
@@ -453,6 +453,9 @@ def edit_rsvp(request, event_id):
         dietary_select = request.POST.get('dietary_requirements_select', '')
         if dietary_select == 'other':
             dietary_requirements = request.POST.get('dietary_requirements', '')
+        elif dietary_select == '':
+            # User selected "None" option
+            dietary_requirements = 'None'
         else:
             dietary_requirements = dietary_select
         
