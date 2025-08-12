@@ -2,6 +2,56 @@
 
 {% block title %}{{ event.title }} - Moratwe{% endblock %}
 
+{% block extra_head %}
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ SITE_URL }}{% url 'events:event_detail' event.id %}">
+<meta property="og:title" content="{{ event.title }}">
+<meta property="og:description" content="{% if event.description %}{{ event.description|truncatewords:30|striptags }}{% else %}Join us for {{ event.title }} on {{ event.date|date:"F j, Y" }} at {{ event.location }}.{% endif %}">
+{% if event.image %}
+<meta property="og:image" content="{{ SITE_URL }}{{ event.image.url }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+{% else %}
+<meta property="og:image" content="{{ SITE_URL }}/static/images/logo.jpg">
+<meta property="og:image:width" content="300">
+<meta property="og:image:height" content="300">
+<meta property="og:image:type" content="image/jpeg">
+{% endif %}
+<meta property="og:image:alt" content="{{ event.title }} - Event on Moratwe">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="{{ SITE_URL }}{% url 'events:event_detail' event.id %}">
+<meta property="twitter:title" content="{{ event.title }}">
+<meta property="twitter:description" content="{% if event.description %}{{ event.description|truncatewords:30|striptags }}{% else %}Join us for {{ event.title }} on {{ event.date|date:"F j, Y" }} at {{ event.location }}.{% endif %}">
+{% if event.image %}
+<meta property="twitter:image" content="{{ SITE_URL }}{{ event.image.url }}">
+{% else %}
+<meta property="twitter:image" content="{{ SITE_URL }}/static/images/logo.jpg">
+{% endif %}
+<meta property="twitter:image:alt" content="{{ event.title }} - Event on Moratwe">
+
+<!-- WhatsApp specific meta tags -->
+<meta property="og:site_name" content="Moratwe">
+<meta property="og:locale" content="en_US">
+<meta property="article:author" content="{{ event.organizer.get_full_name }}">
+<meta property="article:published_time" content="{{ event.created_at|date:'c' }}">
+
+<!-- Additional meta tags for better sharing -->
+<meta name="description" content="{% if event.description %}{{ event.description|truncatewords:30|striptags }}{% else %}Join us for {{ event.title }} on {{ event.date|date:"F j, Y" }} at {{ event.location }}.{% endif %}">
+<meta name="keywords" content="event, {{ event.title }}, {{ event.location }}, RSVP, Moratwe">
+<meta name="author" content="{{ event.organizer.get_full_name }}">
+
+<!-- Canonical URL -->
+<link rel="canonical" href="{{ SITE_URL }}{% url 'events:event_detail' event.id %}">
+
+<!-- Favicon and app icons -->
+<link rel="icon" type="image/x-icon" href="{{ SITE_URL }}/static/images/logo.jpg">
+<link rel="apple-touch-icon" href="{{ SITE_URL }}/static/images/logo.jpg">
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     {% if messages %}
