@@ -129,7 +129,7 @@ html_template = '''<!DOCTYPE html>
 
         <div class="footer">
             <p>This invitation was sent to you via Moratwe Events.</p>
-            <p>If you have any questions, please contact us at support@moratwe.com</p>
+            <p>If you have any questions, please contact us at info@moratwe.co.za</p>
         </div>
     </div>
 </body>

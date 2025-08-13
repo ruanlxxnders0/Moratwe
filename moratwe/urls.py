@@ -114,7 +114,7 @@ schema_view = get_schema_view(
         default_version='v1',
         description="API for Moratwe application",
         terms_of_service="https://www.moratwe.com/terms/",
-        contact=openapi.Contact(email="contact@moratwe.com"),
+        contact=openapi.Contact(email="info@moratwe.co.za"),
         license=openapi.License(name="BSD License"),
     ),
     public=True,
