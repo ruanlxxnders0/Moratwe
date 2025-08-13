@@ -282,8 +282,8 @@ def send_confirmation_email(user, event, request=None):
                         Get the Moratwe App to manage your RSVPs and stay updated on the go:
                     </p>
                     <p style="color: #666; font-size: 0.9em;">
-                        <a href="https://apps.apple.com/app/moratwe" style="color: #007bff;">iOS App Store</a> | 
-                        <a href="https://play.google.com/store/apps/details?id=com.moratwe.app" style="color: #007bff;">Google Play Store</a>
+                        <a href="https://apps.apple.com/za/app/moratwe-rsvp/id6743709254" style="color: #007bff;">iOS App Store</a> | 
+                        <a href="https://play.google.com/store/apps/details?id=com.moratwe.moratwe_app" style="color: #007bff;">Google Play Store</a>
                     </p>
                 </div>
             </div>
