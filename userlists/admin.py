@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+from django.utils.safestring import mark_safe
 from .models import UserList, Invitee
 import pandas as pd
 from django.core.validators import validate_email
@@ -13,18 +14,51 @@ import re
 class InviteeInline(admin.TabularInline):
     model = Invitee
     extra = 1
-    fields = ('email', 'first_name', 'last_name', 'mobile_number')
+    fields = ('email', 'first_name', 'last_name', 'mobile_number', 'guest_category')
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        # Add help text to guest_category field
+        if 'guest_category' in formset.form.base_fields:
+            formset.form.base_fields['guest_category'].help_text = 'Select guest tier level'
+        return formset
+    
+    class Media:
+        css = {
+            'all': ('admin/css/inline-responsive.css',)
+        }
 
 @admin.register(UserList)
 class UserListAdmin(admin.ModelAdmin):
-    list_display = ('name', 'created_at', 'updated_at', 'invitee_count')
+    list_display = ('name', 'created_at', 'updated_at', 'invitee_count', 'vip_count', 'vvip_count', 'regular_count')
     search_fields = ('name', 'description')
     inlines = [InviteeInline]
     change_list_template = 'admin/userlist_changelist.html'
 
     def invitee_count(self, obj):
         return obj.invitees.count()
-    invitee_count.short_description = 'Number of Invitees'
+    invitee_count.short_description = 'Total Invitees'
+
+    def vip_count(self, obj):
+        count = obj.invitees.filter(guest_category='vip').count()
+        if count > 0:
+            return mark_safe(f'<span class="guest-count-vip">{count}</span>')
+        return count
+    vip_count.short_description = 'VIP'
+
+    def vvip_count(self, obj):
+        count = obj.invitees.filter(guest_category='vvip').count()
+        if count > 0:
+            return mark_safe(f'<span class="guest-count-vvip">{count}</span>')
+        return count
+    vvip_count.short_description = 'VVIP'
+
+    def regular_count(self, obj):
+        count = obj.invitees.filter(guest_category='regular').count()
+        if count > 0:
+            return mark_safe(f'<span class="guest-count-regular">{count}</span>')
+        return count
+    regular_count.short_description = 'Regular'
 
     def get_urls(self):
         urls = super().get_urls()
@@ -71,6 +105,10 @@ class UserListAdmin(admin.ModelAdmin):
                     'cellphone', 'cell_phone', 'contact number', 'contact_number', 'number',
                     'mobilenumber', 'phonenumber', 'mobile num', 'phone num'
                 ]
+                category_columns = [
+                    'guest category', 'guest_category', 'category', 'type', 'vip status', 'vip_status',
+                    'guest type', 'guest_type', 'tier', 'level', 'status', 'priority', 'classification'
+                ]
 
                 # Read the Excel file
                 if excel_file.name.endswith('.csv'):
@@ -94,6 +132,7 @@ class UserListAdmin(admin.ModelAdmin):
                 first_name_col = self.get_mapped_column(df.columns, first_name_columns)
                 last_name_col = self.get_mapped_column(df.columns, last_name_columns)
                 mobile_col = self.get_mapped_column(df.columns, mobile_columns)
+                category_col = self.get_mapped_column(df.columns, category_columns)
 
                 # Track validation errors
                 errors = []
@@ -174,13 +213,27 @@ class UserListAdmin(admin.ModelAdmin):
                                 # Assuming numbers like these are international
                                 mobile = '+' + mobile
                         
+                        # Handle guest category
+                        guest_category = 'regular'  # Default
+                        if category_col and str(row[category_col]).strip():
+                            category_value = str(row[category_col]).strip().lower()
+                            # Map common variations to our categories
+                            if category_value in ['vip', 'v.i.p', 'v.i.p.', 'priority', 'premium']:
+                                guest_category = 'vip'
+                            elif category_value in ['vvip', 'v.v.i.p', 'v.v.i.p.', 'ultra', 'exclusive', 'top', 'ultra-premium']:
+                                guest_category = 'vvip'
+                            elif category_value in ['regular', 'standard', 'normal', 'general', 'basic']:
+                                guest_category = 'regular'
+                            # If none match, keep default 'regular'
+                        
                         # Create invitee with cleaned data
                         invitee = Invitee(
                             user_list=user_list,
                             email=email,
                             first_name=str(row[first_name_col]).strip() if first_name_col else '',
                             last_name=str(row[last_name_col]).strip() if last_name_col else '',
-                            mobile_number=mobile
+                            mobile_number=mobile,
+                            guest_category=guest_category
                         )
                         invitee.save()
                         success_count += 1
@@ -199,7 +252,8 @@ class UserListAdmin(admin.ModelAdmin):
                     'Email': email_col,
                     'First Name': first_name_col or 'Not found',
                     'Last Name': last_name_col or 'Not found',
-                    'Mobile Number': mobile_col or 'Not found'
+                    'Mobile Number': mobile_col or 'Not found',
+                    'Guest Category': category_col or 'Not found (defaulting to Regular)'
                 }
                 messages.info(request, f'Column mapping used: {column_mapping}')
 
@@ -212,7 +266,17 @@ class UserListAdmin(admin.ModelAdmin):
 
 @admin.register(Invitee)
 class InviteeAdmin(admin.ModelAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'mobile_number', 'user_list', 'created_at')
-    list_filter = ('user_list', 'created_at')
+    list_display = ('email', 'first_name', 'last_name', 'mobile_number', 'guest_category', 'user_list', 'created_at')
+    list_filter = ('user_list', 'guest_category', 'created_at')
     search_fields = ('email', 'first_name', 'last_name', 'mobile_number')
     ordering = ('-created_at',)
+    
+    fieldsets = (
+        (None, {
+            'fields': ('user_list', 'email', 'first_name', 'last_name', 'mobile_number')
+        }),
+        ('Guest Category', {
+            'fields': ('guest_category',),
+            'description': 'Select the guest category level for this invitee'
+        }),
+    )

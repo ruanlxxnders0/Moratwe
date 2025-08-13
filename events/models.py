@@ -19,12 +19,26 @@ class EmailTemplate(models.Model):
     """
     Model for storing reusable email templates for event invitations.
     """
+    GUEST_CATEGORY_CHOICES = [
+        ('all', _('All Categories')),
+        ('regular', _('Regular')),
+        ('vip', _('VIP')),
+        ('vvip', _('VVIP')),
+    ]
+    
     name = models.CharField(_('name'), max_length=255)
     subject = models.CharField(_('subject'), max_length=255, help_text=_('You can use {{ event.title }} in the subject'))
     content = models.TextField(_('content'), help_text=_(
         'Available variables: {{ first_name }}, {{ last_name }}, {{ event.title }}, '
-        '{{ event.date }}, {{ event.location }}, {{ event.description }}'
+        '{{ event.date }}, {{ event.location }}, {{ event.description }}, {{ guest_category }}'
     ))
+    guest_category = models.CharField(
+        max_length=10,
+        choices=GUEST_CATEGORY_CHOICES,
+        default='all',
+        verbose_name=_('Target Guest Category'),
+        help_text=_('Which guest category this template is designed for')
+    )
     is_default = models.BooleanField(_('is default'), default=False)
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
@@ -39,8 +53,11 @@ class EmailTemplate(models.Model):
 
     def save(self, *args, **kwargs):
         if self.is_default:
-            # Ensure only one default template exists
-            EmailTemplate.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+            # Ensure only one default template exists per guest category
+            EmailTemplate.objects.filter(
+                is_default=True, 
+                guest_category=self.guest_category
+            ).exclude(pk=self.pk).update(is_default=False)
         super().save(*args, **kwargs)
 
 

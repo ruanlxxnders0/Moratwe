@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Event, BreakawaySession, RSVP
+from .models import Event, BreakawaySession, RSVP, EmailTemplate
 from users.serializers import CustomUserSerializer
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -9,6 +9,21 @@ from django.core.files.base import ContentFile
 import uuid
 
 User = get_user_model()
+
+
+class EmailTemplateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the EmailTemplate model.
+    """
+    guest_category_display = serializers.CharField(source='get_guest_category_display', read_only=True)
+    
+    class Meta:
+        model = EmailTemplate
+        fields = (
+            'id', 'name', 'subject', 'content', 'guest_category', 'guest_category_display',
+            'is_default', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'guest_category_display')
 
 
 class BreakawaySessionSerializer(serializers.ModelSerializer):

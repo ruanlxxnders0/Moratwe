@@ -1,0 +1,219 @@
+/* Responsive Inline Tables */
+
+/* Container for inline tables */
+.inline-group {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+/* Main inline table styling */
+.inline-group table {
+    min-width: 100%;
+    table-layout: auto;
+    border-collapse: collapse;
+}
+
+/* Header and cell styling */
+.inline-group th,
+.inline-group td {
+    white-space: nowrap;
+    padding: 8px 6px;
+    vertical-align: top;
+    border: 1px solid #ddd;
+}
+
+/* Specific column width controls for Invitee inline */
+.inline-group .field-email {
+    min-width: 200px;
+    max-width: 250px;
+}
+
+.inline-group .field-email input {
+    width: 100%;
+    max-width: 240px;
+}
+
+.inline-group .field-first_name,
+.inline-group .field-last_name {
+    min-width: 100px;
+    max-width: 120px;
+}
+
+.inline-group .field-first_name input,
+.inline-group .field-last_name input {
+    width: 100%;
+    max-width: 110px;
+}
+
+.inline-group .field-mobile_number {
+    min-width: 120px;
+    max-width: 150px;
+}
+
+.inline-group .field-mobile_number input {
+    width: 100%;
+    max-width: 140px;
+}
+
+.inline-group .field-guest_category {
+    min-width: 100px;
+    max-width: 120px;
+}
+
+.inline-group .field-guest_category select {
+    width: 100%;
+    max-width: 110px;
+}
+
+/* Delete checkbox column */
+.inline-group .field-DELETE {
+    width: 60px;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Row number column */
+.inline-group .original {
+    width: 30px;
+    min-width: 30px;
+    text-align: center;
+}
+
+/* Make guest category more visually appealing */
+.inline-group .field-guest_category select option[value="vip"] {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.inline-group .field-guest_category select option[value="vvip"] {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.inline-group .field-guest_category select option[value="regular"] {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+/* Help text styling */
+.inline-group .help {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+    display: block;
+}
+
+/* Responsive breakpoints */
+@media screen and (max-width: 1200px) {
+    .inline-group th,
+    .inline-group td {
+        padding: 6px 4px;
+        font-size: 13px;
+    }
+    
+    .inline-group .field-email {
+        max-width: 200px;
+    }
+    
+    .inline-group .field-first_name,
+    .inline-group .field-last_name {
+        max-width: 100px;
+    }
+    
+    .inline-group .field-mobile_number {
+        max-width: 130px;
+    }
+}
+
+@media screen and (max-width: 992px) {
+    .inline-group th,
+    .inline-group td {
+        padding: 4px 3px;
+        font-size: 12px;
+    }
+    
+    .inline-group .field-email {
+        max-width: 180px;
+    }
+    
+    .inline-group .field-first_name,
+    .inline-group .field-last_name {
+        max-width: 80px;
+    }
+    
+    .inline-group .field-mobile_number {
+        max-width: 110px;
+    }
+    
+    .inline-group .field-guest_category {
+        max-width: 100px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    /* Stack the inline form on very small screens */
+    .inline-group table,
+    .inline-group thead,
+    .inline-group tbody,
+    .inline-group th,
+    .inline-group td,
+    .inline-group tr {
+        display: block;
+    }
+    
+    .inline-group thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+    
+    .inline-group tr {
+        border: 1px solid #ccc;
+        margin-bottom: 10px;
+        padding: 10px;
+        background: #f9f9f9;
+    }
+    
+    .inline-group td {
+        border: none;
+        position: relative;
+        padding-left: 50%;
+        white-space: normal;
+    }
+    
+    .inline-group td:before {
+        content: attr(data-label);
+        position: absolute;
+        left: 6px;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    /* Add data labels for mobile view */
+    .inline-group .field-email:before {
+        content: "Email: ";
+    }
+    
+    .inline-group .field-first_name:before {
+        content: "First Name: ";
+    }
+    
+    .inline-group .field-last_name:before {
+        content: "Last Name: ";
+    }
+    
+    .inline-group .field-mobile_number:before {
+        content: "Mobile: ";
+    }
+    
+    .inline-group .field-guest_category:before {
+        content: "Category: ";
+    }
+    
+    .inline-group .field-DELETE:before {
+        content: "Delete: ";
+    }
+}

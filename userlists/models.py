@@ -20,11 +20,24 @@ class UserList(models.Model):
         ordering = ['-created_at']
 
 class Invitee(models.Model):
+    GUEST_CATEGORY_CHOICES = [
+        ('regular', _('Regular')),
+        ('vip', _('VIP')),
+        ('vvip', _('VVIP')),
+    ]
+    
     user_list = models.ForeignKey(UserList, on_delete=models.CASCADE, related_name='invitees')
     email = models.EmailField(validators=[EmailValidator()])
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
     mobile_number = models.CharField(max_length=30, blank=True)
+    guest_category = models.CharField(
+        max_length=10, 
+        choices=GUEST_CATEGORY_CHOICES, 
+        default='regular',
+        verbose_name=_('Guest Category'),
+        help_text=_('Guest categorization level (Regular, VIP, VVIP)')
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
