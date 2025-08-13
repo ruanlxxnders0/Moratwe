@@ -253,6 +253,10 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                     # Generate RSVP URLs
                     rsvp_urls = get_rsvp_urls(existing_rsvp.token, invitee.email)
                     
+                    # Generate calendar links for email
+                    from .utils import get_calendar_email_html
+                    calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+                    
                     # Set up context for template
                     context = Context({
                         'first_name': invitee.first_name or "",
@@ -260,6 +264,7 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                         'event': event,
                         'rsvp_accept_url': rsvp_urls['accept'],
                         'rsvp_decline_url': rsvp_urls['decline'],
+                        'calendar_links': calendar_links_html,
                         'SITE_URL': settings.SITE_URL.rstrip('/')
                     })
                     
@@ -570,12 +575,17 @@ def process_rsvp_reminders(event, rsvps):
         # Generate RSVP URLs
         rsvp_urls = get_rsvp_urls(rsvp.token, invitee.email)
         
+        # Generate calendar links for email
+        from .utils import get_calendar_email_html
+        calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+        
         context = Context({
             'first_name': invitee.first_name,
             'last_name': invitee.last_name,
             'event': event,
             'rsvp_accept_url': rsvp_urls['accept'],
             'rsvp_decline_url': rsvp_urls['decline'],
+            'calendar_links': calendar_links_html,
             'SITE_URL': settings.SITE_URL.rstrip('/')
         })
         

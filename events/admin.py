@@ -518,6 +518,10 @@ class EventAdmin(admin.ModelAdmin):
                 # Generate RSVP URLs
                 rsvp_urls = self.get_rsvp_urls(event.id, invitee.email)
                 
+                # Generate calendar links for email
+                from .utils import get_calendar_email_html
+                calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+                
                 # Set up context for template
                 context = Context({
                     'first_name': invitee.first_name or 'Guest',
@@ -525,6 +529,7 @@ class EventAdmin(admin.ModelAdmin):
                     'event': event,
                     'rsvp_accept_url': rsvp_urls['accept'],
                     'rsvp_decline_url': rsvp_urls['decline'],
+                    'calendar_links': calendar_links_html,
                     'SITE_URL': settings.SITE_URL.rstrip('/')
                 })
                 
@@ -613,12 +618,17 @@ class EventAdmin(admin.ModelAdmin):
                             # Generate RSVP URLs for this invitee
                             rsvp_urls = self.get_rsvp_urls(event.id, invitee.email)
                             
+                            # Generate calendar links for email
+                            from .utils import get_calendar_email_html
+                            calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+                            
                             context = Context({
                                 'first_name': invitee.first_name or 'Guest',
                                 'last_name': invitee.last_name or '',
                                 'event': event,
                                 'rsvp_accept_url': rsvp_urls['accept'],
                                 'rsvp_decline_url': rsvp_urls['decline'],
+                                'calendar_links': calendar_links_html,
                                 'SITE_URL': settings.SITE_URL.rstrip('/')
                             })
                             
@@ -1066,6 +1076,10 @@ class EventAdmin(admin.ModelAdmin):
                         # Generate RSVP URLs
                         rsvp_urls = self.get_rsvp_urls(event.id, invitee.email)
                         
+                        # Generate calendar links for email
+                        from .utils import get_calendar_email_html
+                        calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+                        
                         # Set up context for template
                         context = Context({
                             'first_name': invitee.first_name or 'Guest',
@@ -1073,6 +1087,7 @@ class EventAdmin(admin.ModelAdmin):
                             'event': event,
                             'rsvp_accept_url': rsvp_urls['accept'],
                             'rsvp_decline_url': rsvp_urls['decline'],
+                            'calendar_links': calendar_links_html,
                             'SITE_URL': settings.SITE_URL.rstrip('/')
                         })
                         
