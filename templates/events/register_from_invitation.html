@@ -56,11 +56,11 @@
             </div>
             
             <div>
-                <label for="mobile" class="block text-sm font-medium text-gray-700">Mobile Number</label>
-                <input type="tel" name="mobile" id="mobile" value="{{ mobile }}" 
+                <label for="mobile" class="block text-sm font-medium text-gray-700">Mobile Number <span class="text-gray-500 text-sm">(optional)</span></label>
+                <input type="tel" name="mobile" id="mobile" value="{{ mobile|default:'' }}" 
                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                       placeholder="e.g., +27 12 345 6789">
-                <p class="mt-1 text-sm text-gray-500">Include country code if international</p>
+                       placeholder="e.g., 012 345 6789 (optional)">
+                <p class="mt-1 text-sm text-gray-500">You can add or update your phone number here. Include country code if international.</p>
             </div>
             
             <div>
@@ -91,10 +91,10 @@
         <h2 class="text-xl font-semibold mb-4">Get the Moratwe App</h2>
         <p class="text-gray-600 mb-4">Download our mobile app to manage your RSVPs and stay updated:</p>
         <div class="flex justify-center space-x-4">
-            <a href="https://apps.apple.com/app/moratwe" class="inline-block">
+            <a href="https://apps.apple.com/za/app/moratwe-rsvp/id6743709254" class="inline-block">
                 <img src="{{ SITE_URL }}/static/images/app-store-badge.svg" alt="Download on the App Store" class="h-12">
             </a>
-            <a href="https://play.google.com/store/apps/details?id=com.moratwe.app" class="inline-block">
+            <a href="https://play.google.com/store/apps/details?id=com.moratwe.moratwe_app" class="inline-block">
                 <img src="{{ SITE_URL }}/static/images/google-play-badge.png" alt="Get it on Google Play" class="h-12">
             </a>
         </div>

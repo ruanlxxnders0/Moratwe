@@ -109,17 +109,19 @@ html_template = '''<!DOCTYPE html>
             <a href="{{ rsvp_accept_url }}" class="button accept">Accept</a>
             <a href="{{ rsvp_decline_url }}" class="button decline">Decline</a>
         </div>
+        
+        {{ calendar_links|safe }}
 
         <div class="app-stores">
             <h3>Get the Moratwe App</h3>
             <p>Download our mobile app to manage your invitations and stay updated:</p>
             <div>
-                <a href="https://apps.apple.com/app/moratwe" class="app-button">
+                <a href="https://apps.apple.com/za/app/moratwe-rsvp/id6743709254" class="app-button">
                     <img src="{{ SITE_URL }}/static/images/app-store-badge.svg" alt="Download on the App Store" style="max-width: 200px;">
                 </a>
             </div>
             <div>
-                <a href="https://play.google.com/store/apps/details?id=com.moratwe.app" class="app-button">
+                <a href="https://play.google.com/store/apps/details?id=com.moratwe.moratwe_app" class="app-button">
                     <img src="{{ SITE_URL }}/static/images/google-play-badge.png" alt="Get it on Google Play" style="max-width: 200px;">
                 </a>
             </div>
@@ -127,7 +129,7 @@ html_template = '''<!DOCTYPE html>
 
         <div class="footer">
             <p>This invitation was sent to you via Moratwe Events.</p>
-            <p>If you have any questions, please contact us at support@moratwe.com</p>
+            <p>If you have any questions, please contact us at info@moratwe.co.za</p>
         </div>
     </div>
 </body>

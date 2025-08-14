@@ -20,6 +20,8 @@ from django.utils.html import strip_tags
 from django.contrib.auth.decorators import login_required
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+from .utils import get_calendar_email_html, generate_calendar_links
+from django.http import HttpResponse
 import os
 
 logger = logging.getLogger(__name__)
@@ -106,7 +108,10 @@ def register_from_invitation(request):
         # Allow users to edit their name and mobile, but fallback to session data
         first_name = request.POST.get('first_name') or request.session.get('invitee_first_name')
         last_name = request.POST.get('last_name') or request.session.get('invitee_last_name')
-        mobile = request.POST.get('mobile') or request.session.get('invitee_mobile')
+        # Handle mobile number: use POST data if provided, otherwise fallback to session
+        mobile = request.POST.get('mobile', '').strip()
+        if not mobile:
+            mobile = request.session.get('invitee_mobile', '')
         event_id = request.session.get('event_id')
         token = request.session.get('rsvp_token')
         password = request.POST.get('password')
@@ -117,12 +122,15 @@ def register_from_invitation(request):
         
         # Create new user
         try:
+            # Handle empty phone number properly
+            phone_number = mobile.strip() if mobile and mobile.strip() else None
+            
             user = CustomUser.objects.create_user(
                 email=email,
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
-                phone_number=mobile
+                phone_number=phone_number
             )
         except IntegrityError as e:
             # Handle database integrity errors (like duplicate phone numbers)
@@ -201,8 +209,8 @@ def register_from_invitation(request):
                        'invitee_mobile', 'event_id', 'rsvp_token']:
                 request.session.pop(key, None)
             
-            messages.success(request, 'Registration successful! You have accepted the invitation.')
-            return redirect('events:event_detail', event_id=event.id)
+            messages.success(request, 'Registration successful! Please complete your RSVP details below.')
+            return redirect('events:edit_rsvp', event_id=event.id)
             
         except InviteeRSVP.DoesNotExist:
             messages.error(request, 'Invalid invitation.')
@@ -264,6 +272,8 @@ def send_confirmation_email(user, event, request=None):
                 </div>
                 {% endif %}
                 
+                {{ calendar_links|safe }}
+                
                 <p>You can view the event details and manage your RSVP at any time by visiting:</p>
                 <p><a href="{{ event_url }}" style="color: #007bff;">{{ event_url }}</a></p>
                 
@@ -272,8 +282,8 @@ def send_confirmation_email(user, event, request=None):
                         Get the Moratwe App to manage your RSVPs and stay updated on the go:
                     </p>
                     <p style="color: #666; font-size: 0.9em;">
-                        <a href="https://apps.apple.com/app/moratwe" style="color: #007bff;">iOS App Store</a> | 
-                        <a href="https://play.google.com/store/apps/details?id=com.moratwe.app" style="color: #007bff;">Google Play Store</a>
+                        <a href="https://apps.apple.com/za/app/moratwe-rsvp/id6743709254" style="color: #007bff;">iOS App Store</a> | 
+                        <a href="https://play.google.com/store/apps/details?id=com.moratwe.moratwe_app" style="color: #007bff;">Google Play Store</a>
                     </p>
                 </div>
             </div>
@@ -288,12 +298,16 @@ def send_confirmation_email(user, event, request=None):
         else:
             qr_code_url = f"{settings.SITE_URL}{rsvp.qr_code.url}"
 
+    # Generate calendar links for email
+    calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+    
     context = Context({
         'first_name': user.first_name or 'Guest',
         'last_name': user.last_name or '',
         'event': event,
         'qr_code_url': qr_code_url,
         'event_url': f"{settings.SITE_URL.rstrip('/')}{reverse('events:event_detail', args=[event.id])}",
+        'calendar_links': calendar_links_html,
         'SITE_URL': settings.SITE_URL.rstrip('/')
     })
     
@@ -447,6 +461,9 @@ def edit_rsvp(request, event_id):
         dietary_select = request.POST.get('dietary_requirements_select', '')
         if dietary_select == 'other':
             dietary_requirements = request.POST.get('dietary_requirements', '')
+        elif dietary_select == '':
+            # User selected "None" option
+            dietary_requirements = 'None'
         else:
             dietary_requirements = dietary_select
         
@@ -475,3 +492,77 @@ def edit_rsvp(request, event_id):
         'rsvp': rsvp,
         'SITE_URL': settings.SITE_URL.rstrip('/')
     })
+
+
+def event_calendar_ics(request, event_id):
+    """Serve ICS calendar file for an event."""
+    try:
+        event = Event.objects.get(id=event_id)
+    except Event.DoesNotExist:
+        return HttpResponse("Event not found", status=404)
+    
+    # Generate calendar links to get the ICS content
+    calendar_links = generate_calendar_links(event, settings.SITE_URL.rstrip('/'))
+    
+    if not calendar_links or 'ics_content' not in calendar_links:
+        return HttpResponse("Calendar data not available", status=404)
+    
+    # Return the ICS file
+    response = HttpResponse(
+        calendar_links['ics_content'],
+        content_type='text/calendar; charset=utf-8'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{calendar_links["ics_filename"]}"'
+    
+    return response
+
+
+def send_save_the_date_email(user, event, request=None):
+    """Send a save the date email for an event."""
+    from django.template import Template, Context
+    from django.urls import reverse
+    from django.conf import settings
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail
+    from .utils import get_calendar_email_html
+    import os
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Try to get a save the date template
+    template = EmailTemplate.objects.filter(name='Save the Date').first()
+    if not template:
+        logger.error("Save the Date template not found")
+        return False
+    
+    # Generate calendar links for email
+    calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+    
+    context = Context({
+        'first_name': user.first_name or 'Guest',
+        'last_name': user.last_name or '',
+        'event': event,
+        'event_url': f"{settings.SITE_URL.rstrip('/')}{reverse('events:event_detail', args=[event.id])}",
+        'calendar_links': calendar_links_html,
+        'SITE_URL': settings.SITE_URL.rstrip('/')
+    })
+    
+    subject = Template(template.subject).render(context)
+    html_content = Template(template.content).render(context)
+
+    message = Mail(
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to_emails=user.email,
+        subject=subject,
+        html_content=html_content
+    )
+    
+    try:
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        logger.info(f"SendGrid save the date email sent to {user.email}, status code: {response.status_code}")
+        return True
+    except Exception as e:
+        logger.error(f"Error sending save the date email via SendGrid to {user.email}: {e}")
+        return False

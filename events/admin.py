@@ -32,13 +32,13 @@ logger = logging.getLogger(__name__)
 
 @admin.register(EmailTemplate)
 class EmailTemplateAdmin(admin.ModelAdmin):
-    list_display = ('name', 'subject', 'is_default', 'created_at')
-    list_filter = ('is_default',)
+    list_display = ('name', 'subject', 'guest_category', 'is_default', 'created_at')
+    list_filter = ('guest_category', 'is_default')
     search_fields = ('name', 'subject', 'content')
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         (None, {
-            'fields': ('name', 'subject', 'content', 'is_default')
+            'fields': ('name', 'subject', 'guest_category', 'content', 'is_default')
         }),
         (_('Timestamps'), {
             'fields': ('created_at', 'updated_at'),
@@ -518,6 +518,10 @@ class EventAdmin(admin.ModelAdmin):
                 # Generate RSVP URLs
                 rsvp_urls = self.get_rsvp_urls(event.id, invitee.email)
                 
+                # Generate calendar links for email
+                from .utils import get_calendar_email_html
+                calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+                
                 # Set up context for template
                 context = Context({
                     'first_name': invitee.first_name or 'Guest',
@@ -525,6 +529,7 @@ class EventAdmin(admin.ModelAdmin):
                     'event': event,
                     'rsvp_accept_url': rsvp_urls['accept'],
                     'rsvp_decline_url': rsvp_urls['decline'],
+                    'calendar_links': calendar_links_html,
                     'SITE_URL': settings.SITE_URL.rstrip('/')
                 })
                 
@@ -595,30 +600,67 @@ class EventAdmin(admin.ModelAdmin):
                 logger.info(f"Processing event: {event.title} (ID: {event.id})")
                 
                 for invitation in event.invitations.all():
-                    template = invitation.email_template
-                    if not template:
-                        template = EmailTemplate.objects.filter(is_default=True).first()
-                        if not template:
-                            logger.error("No email template found (neither custom nor default)")
-                            continue
-                    
-                    logger.info(f"Using template: {template.name}")
-                    
                     for invitee in invitation.user_list.invitees.all():
                         if not invitee.email:
                             logger.warning(f"Skipping invitee without email in list: {invitation.user_list.name}")
                             continue
                         
+                        # Select template based on guest category
+                        template = None
+                        
+                        # First, try to find a category-specific template
+                        if invitee.guest_category in ['vip', 'vvip', 'regular']:
+                            template = EmailTemplate.objects.filter(
+                                guest_category=invitee.guest_category,
+                                is_default=True
+                            ).first()
+                            
+                            if template:
+                                logger.info(f"Using {invitee.guest_category.upper()} template for {invitee.email}")
+                        
+                        # If no category-specific template, use the invitation's assigned template
+                        if not template and invitation.email_template:
+                            template = invitation.email_template
+                            logger.info(f"Using invitation-assigned template for {invitee.email}")
+                        
+                        # If still no template, use a general default template
+                        if not template:
+                            template = EmailTemplate.objects.filter(
+                                guest_category='all',
+                                is_default=True
+                            ).first()
+                            
+                            if template:
+                                logger.info(f"Using general default template for {invitee.email}")
+                        
+                        # Final fallback to any default template
+                        if not template:
+                            template = EmailTemplate.objects.filter(is_default=True).first()
+                            logger.warning(f"Using fallback default template for {invitee.email}")
+                        
+                        if not template:
+                            logger.error("No email template found (neither custom nor default)")
+                            continue
+                        
+                        logger.info(f"Using template: {template.name}")
+                        
                         try:
                             # Generate RSVP URLs for this invitee
                             rsvp_urls = self.get_rsvp_urls(event.id, invitee.email)
                             
+                            # Generate calendar links for email
+                            from .utils import get_calendar_email_html
+                            calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+                            
                             context = Context({
                                 'first_name': invitee.first_name or 'Guest',
                                 'last_name': invitee.last_name or '',
+                                'guest_category': invitee.guest_category,
+                                'guest_category_display': invitee.get_guest_category_display(),
                                 'event': event,
                                 'rsvp_accept_url': rsvp_urls['accept'],
                                 'rsvp_decline_url': rsvp_urls['decline'],
+                                'calendar_links': calendar_links_html,
                                 'SITE_URL': settings.SITE_URL.rstrip('/')
                             })
                             
@@ -1066,6 +1108,10 @@ class EventAdmin(admin.ModelAdmin):
                         # Generate RSVP URLs
                         rsvp_urls = self.get_rsvp_urls(event.id, invitee.email)
                         
+                        # Generate calendar links for email
+                        from .utils import get_calendar_email_html
+                        calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+                        
                         # Set up context for template
                         context = Context({
                             'first_name': invitee.first_name or 'Guest',
@@ -1073,6 +1119,7 @@ class EventAdmin(admin.ModelAdmin):
                             'event': event,
                             'rsvp_accept_url': rsvp_urls['accept'],
                             'rsvp_decline_url': rsvp_urls['decline'],
+                            'calendar_links': calendar_links_html,
                             'SITE_URL': settings.SITE_URL.rstrip('/')
                         })
                         

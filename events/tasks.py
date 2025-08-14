@@ -58,19 +58,7 @@ def process_invitations_task(self, task_id, event_id, batch_size):
         
         for invitation in event.invitations.all():
             list_invitees = invitation.user_list.invitees.all()
-            template = invitation.email_template or EmailTemplate.objects.filter(is_default=True).first()
             logger.info(f"Processing invitation for list: {invitation.user_list.name} with {list_invitees.count()} invitees")
-            
-            if not template:
-                error_msg = "No email template found. Please create a default template or assign one to the invitation."
-                logger.error(error_msg)
-                TaskStatus.update_task(
-                    task_id,
-                    status='error',
-                    error=error_msg,
-                    message=error_msg
-                )
-                return
             
             for invitee in list_invitees:
                 # Skip if no email
@@ -82,6 +70,50 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                 if invitee.email in invitee_map:
                     logger.info(f"Skipping duplicate invitee email: {invitee.email}")
                     continue
+                
+                # Select template based on guest category
+                template = None
+                
+                # First, try to find a category-specific template
+                if invitee.guest_category in ['vip', 'vvip', 'regular']:
+                    template = EmailTemplate.objects.filter(
+                        guest_category=invitee.guest_category,
+                        is_default=True
+                    ).first()
+                    
+                    if template:
+                        logger.info(f"Using {invitee.guest_category.upper()} template for {invitee.email}")
+                
+                # If no category-specific template, use the invitation's assigned template
+                if not template and invitation.email_template:
+                    template = invitation.email_template
+                    logger.info(f"Using invitation-assigned template for {invitee.email}")
+                
+                # If still no template, use a general default template
+                if not template:
+                    template = EmailTemplate.objects.filter(
+                        guest_category='all',
+                        is_default=True
+                    ).first()
+                    
+                    if template:
+                        logger.info(f"Using general default template for {invitee.email}")
+                
+                # Final fallback to any default template
+                if not template:
+                    template = EmailTemplate.objects.filter(is_default=True).first()
+                    logger.warning(f"Using fallback default template for {invitee.email}")
+                
+                if not template:
+                    error_msg = "No email template found. Please create a default template or assign one to the invitation."
+                    logger.error(error_msg)
+                    TaskStatus.update_task(
+                        task_id,
+                        status='error',
+                        error=error_msg,
+                        message=error_msg
+                    )
+                    return
                 
                 invitee_map[invitee.email] = {
                     'invitee': invitee,
@@ -253,13 +285,20 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                     # Generate RSVP URLs
                     rsvp_urls = get_rsvp_urls(existing_rsvp.token, invitee.email)
                     
+                    # Generate calendar links for email
+                    from .utils import get_calendar_email_html
+                    calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+                    
                     # Set up context for template
                     context = Context({
                         'first_name': invitee.first_name or "",
                         'last_name': invitee.last_name or "",
+                        'guest_category': invitee.guest_category,
+                        'guest_category_display': invitee.get_guest_category_display(),
                         'event': event,
                         'rsvp_accept_url': rsvp_urls['accept'],
                         'rsvp_decline_url': rsvp_urls['decline'],
+                        'calendar_links': calendar_links_html,
                         'SITE_URL': settings.SITE_URL.rstrip('/')
                     })
                     
@@ -523,18 +562,19 @@ def process_rsvps_task(self, task_id, event_id, action, status_value=None, batch
                 processed=processed_count,
                 total=total_count,
                 offset=offset + batch_count,
-                message=f"Reminders sent to {sent_count} invitees with {failed_count} failures."
+                message=f"Processed {processed_count} of {total_count} RSVPs."
             )
             
             offset += batch_size
         
         # All done - update final status
+        total_failed = 0  # We'd need to track this across batches if needed
         TaskStatus.update_task(
             task_id,
             status='complete',
             progress=100,
             processed=processed_count,
-            message=f"Reminders sent to {processed_count} invitees with {len(failed_emails)} failures."
+            message=f"Process completed. Processed {processed_count} RSVPs."
         )
         
         logger.info(f"Task {task_id} completed successfully. Processed {processed_count} RSVPs.")
@@ -570,12 +610,17 @@ def process_rsvp_reminders(event, rsvps):
         # Generate RSVP URLs
         rsvp_urls = get_rsvp_urls(rsvp.token, invitee.email)
         
+        # Generate calendar links for email
+        from .utils import get_calendar_email_html
+        calendar_links_html = get_calendar_email_html(event, settings.SITE_URL.rstrip('/'))
+        
         context = Context({
             'first_name': invitee.first_name,
             'last_name': invitee.last_name,
             'event': event,
             'rsvp_accept_url': rsvp_urls['accept'],
             'rsvp_decline_url': rsvp_urls['decline'],
+            'calendar_links': calendar_links_html,
             'SITE_URL': settings.SITE_URL.rstrip('/')
         })
         

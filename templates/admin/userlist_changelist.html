@@ -1,6 +1,114 @@
 {% extends "admin/change_list.html" %}
 {% load i18n admin_urls %}
 
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Fix table responsiveness and layout */
+    .results {
+        overflow-x: auto;
+        margin-bottom: 20px;
+    }
+    
+    #result_list {
+        min-width: 100%;
+        max-width: 100%;
+        table-layout: auto;
+    }
+    
+    #result_list th,
+    #result_list td {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+        padding: 8px 10px;
+    }
+    
+    /* Specific column widths */
+    #result_list th:first-child,
+    #result_list td:first-child {
+        width: 30px; /* Checkbox column */
+        max-width: 30px;
+    }
+    
+    #result_list th:nth-child(2),
+    #result_list td:nth-child(2) {
+        max-width: 150px; /* Name column */
+    }
+    
+    #result_list th:nth-child(3),
+    #result_list td:nth-child(3) {
+        max-width: 100px; /* Created at */
+    }
+    
+    #result_list th:nth-child(4),
+    #result_list td:nth-child(4) {
+        max-width: 100px; /* Updated at */
+    }
+    
+    #result_list th:nth-child(5),
+    #result_list td:nth-child(5) {
+        max-width: 80px; /* Total Invitees */
+    }
+    
+    #result_list th:nth-child(6),
+    #result_list td:nth-child(6) {
+        max-width: 60px; /* VIP */
+    }
+    
+    #result_list th:nth-child(7),
+    #result_list td:nth-child(7) {
+        max-width: 60px; /* VVIP */
+    }
+    
+    #result_list th:nth-child(8),
+    #result_list td:nth-child(8) {
+        max-width: 80px; /* Regular */
+    }
+    
+    /* Make guest category counts more visually appealing */
+    .guest-count-vip {
+        color: #f59e0b;
+        font-weight: bold;
+    }
+    
+    .guest-count-vvip {
+        color: #dc2626;
+        font-weight: bold;
+    }
+    
+    .guest-count-regular {
+        color: #059669;
+        font-weight: bold;
+    }
+    
+    /* Responsive behavior */
+    @media screen and (max-width: 1200px) {
+        #result_list th,
+        #result_list td {
+            font-size: 12px;
+            padding: 6px 8px;
+        }
+    }
+    
+    @media screen and (max-width: 992px) {
+        #result_list th,
+        #result_list td {
+            font-size: 11px;
+            padding: 4px 6px;
+        }
+        
+        #result_list th:nth-child(3),
+        #result_list td:nth-child(3),
+        #result_list th:nth-child(4),
+        #result_list td:nth-child(4) {
+            display: none; /* Hide date columns on smaller screens */
+        }
+    }
+</style>
+{% endblock %}
+
 {% block object-tools-items %}
     {% if has_add_permission %}
         <li>
@@ -34,7 +142,7 @@
         </form>
         <div class="help">
             <p><strong>Required columns:</strong> Email (must be present)</p>
-            <p><strong>Optional columns:</strong> First Name, Last Name, Mobile Number</p>
+            <p><strong>Optional columns:</strong> First Name, Last Name, Mobile Number, Guest Category</p>
             <p><strong>Supported formats:</strong> .xlsx, .csv</p>
             
             <p><strong>📋 Column Auto-Detection:</strong></p>
@@ -44,8 +152,16 @@
                 <li><strong>First Name:</strong> first name, firstname, first_name, given name, fname, name, first, givenname, given_name, forename, christian name</li>
                 <li><strong>Last Name:</strong> last name, lastname, last_name, surname, family name, lname, last, familyname, family_name, sur name</li>
                 <li><strong>Mobile Number:</strong> mobile, mobile number, phone, phone number, cell, cell phone, contact, mobile_number, mobile no, phone no, contact no, tel, telephone, cellphone, cell_phone, contact number, contact_number, number, mobilenumber, phonenumber, mobile num, phone num</li>
+                <li><strong>Guest Category:</strong> guest category, guest_category, category, type, vip status, vip_status, guest type, guest_type, tier, level, status, priority, classification</li>
             </ul>
             <p><em>Note: Column names are case-insensitive and special characters are ignored (e.g., "First_Name", "Mobile No.", "PHONE" will all work)</em></p>
+            
+            <p><strong>💎 Guest Category Values:</strong></p>
+            <ul>
+                <li><strong>VIP:</strong> vip, v.i.p, priority, premium</li>
+                <li><strong>VVIP:</strong> vvip, v.v.i.p, ultra, exclusive, top, ultra-premium</li>
+                <li><strong>Regular:</strong> regular, standard, normal, general, basic (default if not specified)</li>
+            </ul>
             
             <p><strong>Email format requirements:</strong></p>
             <ul>

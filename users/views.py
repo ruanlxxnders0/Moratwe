@@ -1,10 +1,15 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from django.contrib.auth import login
+from django.contrib import messages
+from django.urls import reverse_lazy
+from django.views.generic import CreateView
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from .models import CustomUser
 from .serializers import CustomUserSerializer
+from .forms import CustomUserCreationForm
 from django.db import IntegrityError
 import logging
 
@@ -142,6 +147,40 @@ class CustomUserDetailsView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class RegisterView(CreateView):
+    """
+    View for user registration.
+    """
+    model = CustomUser
+    form_class = CustomUserCreationForm
+    template_name = 'users/register.html'
+    success_url = reverse_lazy('login')
+
+    def form_valid(self, form):
+        """
+        If the form is valid, save the user and log them in.
+        """
+        try:
+            user = form.save()
+            # Log the user in
+            login(self.request, user, backend='django.contrib.auth.backends.ModelBackend')
+            messages.success(self.request, 'Registration successful! Welcome to Moratwe.')
+            return redirect('events:home')  # Redirect to events home page after registration
+        except IntegrityError as e:
+            # Handle database integrity errors
+            if 'phone_number' in str(e).lower():
+                form.add_error('phone_number', 'This phone number is already registered.')
+            elif 'email' in str(e).lower():
+                form.add_error('email', 'This email address is already registered.')
+            else:
+                messages.error(self.request, 'A user with this information already exists.')
+            return self.form_invalid(form)
+        except Exception as e:
+            logger.error(f"Unexpected error during registration: {e}")
+            messages.error(self.request, 'An unexpected error occurred. Please try again.')
+            return self.form_invalid(form)
+
 
 def privacy_policy(request):
     return render(request, 'privacy_policy.html')

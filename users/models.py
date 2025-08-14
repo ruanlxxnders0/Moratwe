@@ -48,7 +48,7 @@ class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=30, blank=True)
     last_name = models.CharField(max_length=30, blank=True)
-    phone_number = models.CharField(max_length=30, unique=True)
+    phone_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
     date_joined = models.DateTimeField(default=timezone.now)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -81,20 +81,27 @@ class CustomUser(AbstractUser):
         
         # Clean phone number if provided
         if self.phone_number:
-            # Remove any non-digit characters except for leading +
-            if self.phone_number.startswith('+'):
-                # Keep the leading + sign
-                cleaned_number = '+' + re.sub(r'\D', '', self.phone_number[1:])
+            # If phone number is empty or just whitespace, set it to None
+            if not self.phone_number.strip():
+                self.phone_number = None
             else:
-                cleaned_number = re.sub(r'\D', '', self.phone_number)
-            
-            # Add + prefix for international format if it looks like an international number
-            if not cleaned_number.startswith('+') and len(cleaned_number) > 10:
-                cleaned_number = '+' + cleaned_number
+                # Remove any non-digit characters except for leading +
+                if self.phone_number.startswith('+'):
+                    # Keep the leading + sign
+                    cleaned_number = '+' + re.sub(r'\D', '', self.phone_number[1:])
+                else:
+                    cleaned_number = re.sub(r'\D', '', self.phone_number)
                 
-            # Only update if the cleaned number is different
-            if cleaned_number != self.phone_number:
-                self.phone_number = cleaned_number
+                # Add + prefix for international format if it looks like an international number
+                if not cleaned_number.startswith('+') and len(cleaned_number) > 10:
+                    cleaned_number = '+' + cleaned_number
+                    
+                # Only update if the cleaned number is different
+                if cleaned_number != self.phone_number:
+                    self.phone_number = cleaned_number
+        else:
+            # Ensure empty strings become None for proper uniqueness handling
+            self.phone_number = None
 
     def save(self, *args, **kwargs):
         self.clean()
