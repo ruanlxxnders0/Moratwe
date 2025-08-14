@@ -194,6 +194,7 @@ class RSVP(models.Model):
             return
             
         import qrcode
+        import json
         from io import BytesIO
         from django.core.files.base import ContentFile
         
@@ -205,15 +206,15 @@ class RSVP(models.Model):
             border=4,
         )
         
-        # Add data to QR code
+        # Add data to QR code - format to match mobile app expectations
         qr_data = {
-            'rsvp_id': str(self.id),
             'event_id': str(self.event.id),
             'user_id': str(self.user.id),
             'qr_code_data': str(self.qr_code_data)
         }
         
-        qr.add_data(str(qr_data))
+        # Use JSON encoding to match mobile app format
+        qr.add_data(json.dumps(qr_data))
         qr.make(fit=True)
         
         # Create image from QR code
