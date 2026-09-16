@@ -6,6 +6,10 @@ services:
     buildCommand: "./build.sh"
     startCommand: "gunicorn moratwe.wsgi:application"
     envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: moratwe.settings.production
+      - key: DJANGO_ENV
+        value: production
       - key: DJANGO_SECRET_KEY
         generateValue: true
       - key: DEBUG
