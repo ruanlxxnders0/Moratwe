@@ -49,4 +49,7 @@ ehthumbs.db
 Thumbs.db
 
 # Environment variables
-.env sendgrid.env
+.env
+.env.*
+!.env.example
+sendgrid.env
