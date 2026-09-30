@@ -9,9 +9,6 @@ from django.template import Template, Context
 from django.utils.html import strip_tags
 from django.core.mail import EmailMultiAlternatives
 from django.urls import reverse
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, To
-import os
 
 from events.models import Event, EmailTemplate, InviteeRSVP, TaskStatus
 
@@ -306,22 +303,20 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                     subject = Template(template.subject).render(context)
                     html_content = Template(template.content).render(context)
                     
-                    # Create Mail object for SendGrid
+                    # Build email message to send via SMTP
                     organizer_name = "Moratwe Events"
                     if event.organizer:
                         organizer_name = event.organizer.get_full_name() or "Moratwe Events"
 
-                    message = Mail(
-                        from_email=(settings.DEFAULT_FROM_EMAIL, organizer_name),
-                        to_emails=To(invitee.email, invitee.get_full_name()),
+                    email_message = EmailMultiAlternatives(
                         subject=subject,
-                        html_content=html_content
+                        body=strip_tags(html_content),
+                        from_email=f"{organizer_name} <{settings.DEFAULT_FROM_EMAIL}>",
+                        to=[invitee.email],
                     )
-                    
-                    # Note: Custom args removed to avoid SendGrid API issues
-                    # The email will still be sent successfully without custom tracking
-                    
-                    messages_to_send.append((message, existing_rsvp))
+                    email_message.attach_alternative(html_content, "text/html")
+
+                    messages_to_send.append((email_message, existing_rsvp))
                     
                 except Exception as e:
                     error_msg = str(e)
@@ -373,29 +368,19 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                 # Only increment offset if we processed the entire batch
                 offset += current_batch_size
             
-            # Send the batch of emails using SendGrid
+            # Send the batch of emails via SMTP
             if messages_to_send:
-                try:
-                    sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-                    # Note: SendGrid's v3 API sends emails one by one, but the client manages connections efficiently.
-                    # For true batching, you would use SMTP or explore SendGrid's marketing campaign APIs.
-                    # Here we send them sequentially within the task.
-                    for mail_obj, rsvp_obj in messages_to_send:
-                        response = sg.send(mail_obj)
-                        if 200 <= response.status_code < 300:
-                            # Mark as sent
-                            rsvp_obj.email_sent = True
-                            rsvp_obj.email_sent_at = timezone.now()
-                            rsvp_obj.save(update_fields=['email_sent', 'email_sent_at'])
-                            batch_emails_sent += 1
-                        else:
-                            logger.error(f"Failed to send email to {rsvp_obj.invitee.email}: {response.body}")
-                            failed_emails.append(rsvp_obj.invitee.email)
-                
-                except Exception as e:
-                    logger.error(f"Error sending batch emails via SendGrid: {e}")
-                    # Mark all in this batch as failed for simplicity
-                    failed_emails.extend([rsvp.invitee.email for _, rsvp in messages_to_send])
+                for email_message, rsvp_obj in messages_to_send:
+                    try:
+                        email_message.send()
+                        # Mark as sent
+                        rsvp_obj.email_sent = True
+                        rsvp_obj.email_sent_at = timezone.now()
+                        rsvp_obj.save(update_fields=['email_sent', 'email_sent_at'])
+                        batch_emails_sent += 1
+                    except Exception as e:
+                        logger.error(f"Failed to send email to {rsvp_obj.invitee.email}: {e}")
+                        failed_emails.append(rsvp_obj.invitee.email)
             
             # Update counts
             emails_sent += batch_emails_sent
@@ -627,28 +612,25 @@ def process_rsvp_reminders(event, rsvps):
         subject = Template(template.subject).render(context)
         html_content = Template(template.content).render(context)
         
-        message = Mail(
-            from_email=(settings.DEFAULT_FROM_EMAIL, event.organizer.get_full_name() or 'Moratwe Events'),
-            to_emails=To(invitee.email, invitee.get_full_name()),
+        organizer_name = event.organizer.get_full_name() or 'Moratwe Events'
+        email_message = EmailMultiAlternatives(
             subject=subject,
-            html_content=html_content
+            body=strip_tags(html_content),
+            from_email=f"{organizer_name} <{settings.DEFAULT_FROM_EMAIL}>",
+            to=[invitee.email],
         )
-        
-        messages_to_send.append(message)
-    
-    # Send emails via SendGrid
-    if messages_to_send:
+        email_message.attach_alternative(html_content, "text/html")
+
+        messages_to_send.append((email_message, invitee.email))
+
+    # Send emails via SMTP
+    for email_message, invitee_email in messages_to_send:
         try:
-            sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-            for mail in messages_to_send:
-                response = sg.send(mail)
-                if 200 <= response.status_code < 300:
-                    sent_count += 1
-                else:
-                    failed_emails.append(mail.to[0].email)
+            email_message.send()
+            sent_count += 1
         except Exception as e:
-            logger.error(f"Error sending reminder emails via SendGrid: {e}")
-            return 0, len(rsvps)
+            logger.error(f"Error sending reminder email to {invitee_email}: {e}")
+            failed_emails.append(invitee_email)
             
     return sent_count, len(failed_emails)
 
