@@ -2,7 +2,6 @@ import os
 import uuid
 import logging
 import time
-import requests
 from celery import shared_task
 from celery.result import AsyncResult
 from django.utils import timezone
@@ -10,31 +9,26 @@ from django.conf import settings
 from django.template import Template, Context
 from django.utils.html import strip_tags
 from django.urls import reverse
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, To
 
 from events.models import Event, EmailTemplate, InviteeRSVP, TaskStatus
 
 logger = logging.getLogger(__name__)
 
 
-def send_via_resend(subject, html_content, to_email, from_name):
-    """Send a single email through the Resend HTTP API."""
-    response = requests.post(
-        'https://api.resend.com/emails',
-        headers={
-            'Authorization': f"Bearer {os.environ.get('RESEND_API_KEY')}",
-            'Content-Type': 'application/json',
-        },
-        json={
-            'from': f"{from_name} <{settings.DEFAULT_FROM_EMAIL}>",
-            'to': [to_email],
-            'subject': subject,
-            'html': html_content,
-            'text': strip_tags(html_content),
-        },
-        timeout=30,
+def send_via_sendgrid(subject, html_content, to_email, from_name):
+    """Send a single email through SendGrid."""
+    message = Mail(
+        from_email=(settings.DEFAULT_FROM_EMAIL, from_name),
+        to_emails=To(to_email),
+        subject=subject,
+        html_content=html_content,
     )
+    sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+    response = sg.send(message)
     if response.status_code >= 300:
-        raise Exception(f"Resend API error {response.status_code}: {response.text}")
+        raise Exception(f"SendGrid API error {response.status_code}: {response.body}")
 
 # Function to check if a task is revoked
 def task_is_revoked(task_id):
@@ -386,7 +380,7 @@ def process_invitations_task(self, task_id, event_id, batch_size):
             if messages_to_send:
                 for subject, html_content, organizer_name, rsvp_obj in messages_to_send:
                     try:
-                        send_via_resend(subject, html_content, rsvp_obj.invitee.email, organizer_name)
+                        send_via_sendgrid(subject, html_content, rsvp_obj.invitee.email, organizer_name)
                         # Mark as sent
                         rsvp_obj.email_sent = True
                         rsvp_obj.email_sent_at = timezone.now()
@@ -632,7 +626,7 @@ def process_rsvp_reminders(event, rsvps):
     # Send emails via Resend
     for subject, html_content, organizer_name, invitee_email in messages_to_send:
         try:
-            send_via_resend(subject, html_content, invitee_email, organizer_name)
+            send_via_sendgrid(subject, html_content, invitee_email, organizer_name)
             sent_count += 1
         except Exception as e:
             logger.error(f"Error sending reminder email to {invitee_email}: {e}")
