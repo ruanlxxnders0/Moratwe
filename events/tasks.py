@@ -1,18 +1,40 @@
+import os
 import uuid
 import logging
 import time
+import requests
 from celery import shared_task
 from celery.result import AsyncResult
 from django.utils import timezone
 from django.conf import settings
 from django.template import Template, Context
 from django.utils.html import strip_tags
-from django.core.mail import EmailMultiAlternatives
 from django.urls import reverse
 
 from events.models import Event, EmailTemplate, InviteeRSVP, TaskStatus
 
 logger = logging.getLogger(__name__)
+
+
+def send_via_resend(subject, html_content, to_email, from_name):
+    """Send a single email through the Resend HTTP API."""
+    response = requests.post(
+        'https://api.resend.com/emails',
+        headers={
+            'Authorization': f"Bearer {os.environ.get('RESEND_API_KEY')}",
+            'Content-Type': 'application/json',
+        },
+        json={
+            'from': f"{from_name} <{settings.DEFAULT_FROM_EMAIL}>",
+            'to': [to_email],
+            'subject': subject,
+            'html': html_content,
+            'text': strip_tags(html_content),
+        },
+        timeout=30,
+    )
+    if response.status_code >= 300:
+        raise Exception(f"Resend API error {response.status_code}: {response.text}")
 
 # Function to check if a task is revoked
 def task_is_revoked(task_id):
@@ -303,20 +325,12 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                     subject = Template(template.subject).render(context)
                     html_content = Template(template.content).render(context)
                     
-                    # Build email message to send via SMTP
+                    # Build email payload to send via Resend
                     organizer_name = "Moratwe Events"
                     if event.organizer:
                         organizer_name = event.organizer.get_full_name() or "Moratwe Events"
 
-                    email_message = EmailMultiAlternatives(
-                        subject=subject,
-                        body=strip_tags(html_content),
-                        from_email=f"{organizer_name} <{settings.DEFAULT_FROM_EMAIL}>",
-                        to=[invitee.email],
-                    )
-                    email_message.attach_alternative(html_content, "text/html")
-
-                    messages_to_send.append((email_message, existing_rsvp))
+                    messages_to_send.append((subject, html_content, organizer_name, existing_rsvp))
                     
                 except Exception as e:
                     error_msg = str(e)
@@ -368,11 +382,11 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                 # Only increment offset if we processed the entire batch
                 offset += current_batch_size
             
-            # Send the batch of emails via SMTP
+            # Send the batch of emails via Resend
             if messages_to_send:
-                for email_message, rsvp_obj in messages_to_send:
+                for subject, html_content, organizer_name, rsvp_obj in messages_to_send:
                     try:
-                        email_message.send()
+                        send_via_resend(subject, html_content, rsvp_obj.invitee.email, organizer_name)
                         # Mark as sent
                         rsvp_obj.email_sent = True
                         rsvp_obj.email_sent_at = timezone.now()
@@ -613,20 +627,12 @@ def process_rsvp_reminders(event, rsvps):
         html_content = Template(template.content).render(context)
         
         organizer_name = event.organizer.get_full_name() or 'Moratwe Events'
-        email_message = EmailMultiAlternatives(
-            subject=subject,
-            body=strip_tags(html_content),
-            from_email=f"{organizer_name} <{settings.DEFAULT_FROM_EMAIL}>",
-            to=[invitee.email],
-        )
-        email_message.attach_alternative(html_content, "text/html")
+        messages_to_send.append((subject, html_content, organizer_name, invitee.email))
 
-        messages_to_send.append((email_message, invitee.email))
-
-    # Send emails via SMTP
-    for email_message, invitee_email in messages_to_send:
+    # Send emails via Resend
+    for subject, html_content, organizer_name, invitee_email in messages_to_send:
         try:
-            email_message.send()
+            send_via_resend(subject, html_content, invitee_email, organizer_name)
             sent_count += 1
         except Exception as e:
             logger.error(f"Error sending reminder email to {invitee_email}: {e}")
