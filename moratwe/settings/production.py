@@ -53,6 +53,11 @@ STORAGES = {
 STATICFILES_STORAGE = STORAGES['staticfiles']['BACKEND']
 DEFAULT_FILE_STORAGE = STORAGES['default']['BACKEND']
 
+# django-ckeditor ships a CSS file (codesnippet plugin's "brown_paper" theme)
+# that references a background image missing from the package itself. Don't
+# hard-fail the whole build over that one broken third-party asset reference.
+WHITENOISE_MANIFEST_STRICT = False
+
 # Media files — stored on Cloudinary since Render's disk is ephemeral and
 # wipes uploaded files on every redeploy/restart.
 CLOUDINARY_STORAGE = {
