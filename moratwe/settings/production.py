@@ -45,7 +45,12 @@ STORAGES = {
         'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
     },
     'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        # Non-manifest: django-ckeditor ships multiple plugins (codesnippet,
+        # preview, etc.) whose bundled CSS references images missing from
+        # the actual package. The Manifest variant hard-validates every CSS
+        # url() reference and fails the whole build on each one; this
+        # variant still compresses (gzip/brotli) but skips that validation.
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
 }
 # django-cloudinary-storage's collectstatic override still reads the
