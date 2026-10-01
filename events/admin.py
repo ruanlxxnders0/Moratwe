@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.core.mail import send_mass_mail, send_mail
@@ -8,6 +9,7 @@ from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.core.cache import cache
 from django.utils.http import urlencode
+from ckeditor.widgets import CKEditorWidget
 from .models import Event, BreakawaySession, RSVP, EventInvitation, EmailTemplate, InviteeRSVP, TaskStatus
 from userlists.models import UserList, Invitee
 from django.utils.safestring import mark_safe
@@ -30,8 +32,17 @@ import re
 logger = logging.getLogger(__name__)
 
 
+class EmailTemplateAdminForm(forms.ModelForm):
+    content = forms.CharField(widget=CKEditorWidget(), help_text=EmailTemplate._meta.get_field('content').help_text)
+
+    class Meta:
+        model = EmailTemplate
+        fields = '__all__'
+
+
 @admin.register(EmailTemplate)
 class EmailTemplateAdmin(admin.ModelAdmin):
+    form = EmailTemplateAdminForm
     list_display = ('name', 'subject', 'guest_category', 'is_default', 'created_at')
     list_filter = ('guest_category', 'is_default')
     search_fields = ('name', 'subject', 'content')
