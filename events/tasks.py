@@ -9,6 +9,7 @@ from django.conf import settings
 from django.template import Template, Context
 from django.utils.html import strip_tags
 from django.urls import reverse
+from django.utils.http import urlencode
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, To, Content
 
@@ -316,6 +317,7 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                         'event': event,
                         'rsvp_accept_url': rsvp_urls['accept'],
                         'rsvp_decline_url': rsvp_urls['decline'],
+                        'register_url': f"{settings.SITE_URL.rstrip('/')}{reverse('events:smme_register', args=[event.id])}?{urlencode({'email': invitee.email, 'first_name': invitee.first_name or ''})}",
                         'calendar_links': calendar_links_html,
                         'SITE_URL': settings.SITE_URL.rstrip('/')
                     })

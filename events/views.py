@@ -566,3 +566,32 @@ def send_save_the_date_email(user, event, request=None):
     except Exception as e:
         logger.error(f"Error sending save the date email via SendGrid to {user.email}: {e}")
         return False
+
+
+def smme_register(request, event_id):
+    """Public SMME registration form linked from the invitation email."""
+    from .forms import SMMERegistrationForm
+    from .models import SMMERegistration
+
+    event = get_object_or_404(Event, pk=event_id, is_active=True)
+
+    if request.method == 'POST':
+        form = SMMERegistrationForm(request.POST)
+        if form.is_valid():
+            data = {k: v for k, v in form.cleaned_data.items() if k != 'website'}
+            data['email'] = data['email'].lower()
+            email = data.pop('email')
+            SMMERegistration.objects.update_or_create(event=event, email=email, defaults=data)
+            return redirect('events:smme_register_success', event_id=event.id)
+    else:
+        form = SMMERegistrationForm(initial={
+            'email': request.GET.get('email', ''),
+            'name': request.GET.get('first_name', ''),
+        })
+
+    return render(request, 'events/smme_register.html', {'event': event, 'form': form})
+
+
+def smme_register_success(request, event_id):
+    event = get_object_or_404(Event, pk=event_id)
+    return render(request, 'events/smme_register_success.html', {'event': event})

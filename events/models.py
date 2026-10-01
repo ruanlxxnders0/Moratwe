@@ -362,3 +362,44 @@ class TaskStatus(models.Model):
             return task
         except cls.DoesNotExist:
             return None
+
+
+class SMMERegistration(models.Model):
+    """Public registration submitted by an SMME from the invitation email link."""
+    REGION_CHOICES = [
+        ('johannesburg', 'City of Johannesburg'),
+        ('tshwane', 'Tshwane'),
+        ('ekurhuleni', 'Ekurhuleni'),
+        ('west_rand', 'West-Rand'),
+        ('sedibeng', 'Sedibeng'),
+    ]
+    CATEGORY_CHOICES = [
+        ('women_owned', 'Women Owned'),
+        ('black_owned', 'Black Owned'),
+        ('youth', 'Youth'),
+        ('disabilities', 'People with Disabilities'),
+        ('military_veterans', 'Military Veterans'),
+    ]
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='smme_registrations')
+    name = models.CharField(_('name'), max_length=100)
+    surname = models.CharField(_('surname'), max_length=100)
+    company = models.CharField(_('company/organisation'), max_length=200)
+    position = models.CharField(_('position'), max_length=100)
+    email = models.EmailField(_('email'))
+    tel_number = models.CharField(_('tel number'), max_length=30, blank=True)
+    mobile_number = models.CharField(_('mobile no'), max_length=30)
+    sector = models.CharField(_('sector/industry'), max_length=150)
+    region = models.CharField(_('Gauteng region'), max_length=20, choices=REGION_CHOICES)
+    category = models.CharField(_('category'), max_length=20, choices=CATEGORY_CHOICES)
+    created_at = models.DateTimeField(_('registered at'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('updated at'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('SMME registration')
+        verbose_name_plural = _('SMME registrations')
+        unique_together = ['event', 'email']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} {self.surname} ({self.company}) - {self.event.title}"

@@ -1885,3 +1885,29 @@ class BatchTasksDashboard(admin.ModelAdmin):
 
 # Register with a custom name to appear in the admin sidebar
 admin.site.register(TaskStatus, BatchTasksDashboard)
+
+
+from .models import SMMERegistration
+
+
+@admin.register(SMMERegistration)
+class SMMERegistrationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'surname', 'company', 'position', 'email', 'mobile_number',
+                    'sector', 'region', 'category', 'event', 'created_at')
+    list_filter = ('event', 'region', 'category', 'created_at')
+    search_fields = ('name', 'surname', 'company', 'email', 'mobile_number', 'sector')
+    readonly_fields = ('created_at', 'updated_at')
+    actions = ['export_as_csv']
+
+    @admin.action(description='Export selected registrations to CSV')
+    def export_as_csv(self, request, queryset):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="smme_registrations.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Name', 'Surname', 'Company/Organisation', 'Position', 'Email',
+                         'Tel', 'Mobile', 'Sector/Industry', 'Region', 'Category', 'Event', 'Registered at'])
+        for r in queryset.select_related('event'):
+            writer.writerow([r.name, r.surname, r.company, r.position, r.email, r.tel_number,
+                             r.mobile_number, r.sector, r.get_region_display(),
+                             r.get_category_display(), r.event.title, r.created_at.strftime('%Y-%m-%d %H:%M')])
+        return response
