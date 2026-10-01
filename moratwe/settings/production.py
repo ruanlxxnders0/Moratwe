@@ -48,6 +48,10 @@ STORAGES = {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
 }
+# django-cloudinary-storage's collectstatic override still reads the
+# pre-Django-4.2 legacy setting name; keep it in sync with STORAGES above.
+STATICFILES_STORAGE = STORAGES['staticfiles']['BACKEND']
+DEFAULT_FILE_STORAGE = STORAGES['default']['BACKEND']
 
 # Media files — stored on Cloudinary since Render's disk is ephemeral and
 # wipes uploaded files on every redeploy/restart.
