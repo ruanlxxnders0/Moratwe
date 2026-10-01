@@ -10,7 +10,7 @@ from django.template import Template, Context
 from django.utils.html import strip_tags
 from django.urls import reverse
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, To
+from sendgrid.helpers.mail import Mail, To, Content
 
 from events.models import Event, EmailTemplate, InviteeRSVP, TaskStatus
 
@@ -19,12 +19,17 @@ logger = logging.getLogger(__name__)
 
 def send_via_sendgrid(subject, html_content, to_email, from_name):
     """Send a single email through SendGrid."""
+    if '<html' not in html_content.lower():
+        html_content = f"<html><body>{html_content}</body></html>"
+
     message = Mail(
         from_email=(settings.DEFAULT_FROM_EMAIL, from_name),
         to_emails=To(to_email),
         subject=subject,
-        html_content=html_content,
     )
+    message.add_content(Content("text/plain", strip_tags(html_content)))
+    message.add_content(Content("text/html", html_content))
+
     sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
     response = sg.send(message)
     if response.status_code >= 300:
