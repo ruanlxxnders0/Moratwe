@@ -9,7 +9,7 @@
 <meta property="og:title" content="{{ event.title }}">
 <meta property="og:description" content="{% if event.description %}{{ event.description|truncatewords:30|striptags }}{% else %}Join us for {{ event.title }} on {{ event.date|date:"F j, Y" }} at {{ event.location }}.{% endif %}">
 {% if event.image %}
-<meta property="og:image" content="{{ SITE_URL }}{{ event.image.url }}">
+<meta property="og:image" content="{{ event.image.url }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
@@ -27,7 +27,7 @@
 <meta property="twitter:title" content="{{ event.title }}">
 <meta property="twitter:description" content="{% if event.description %}{{ event.description|truncatewords:30|striptags }}{% else %}Join us for {{ event.title }} on {{ event.date|date:"F j, Y" }} at {{ event.location }}.{% endif %}">
 {% if event.image %}
-<meta property="twitter:image" content="{{ SITE_URL }}{{ event.image.url }}">
+<meta property="twitter:image" content="{{ event.image.url }}">
 {% else %}
 <meta property="twitter:image" content="{{ SITE_URL }}/static/images/logo.jpg">
 {% endif %}
@@ -67,7 +67,7 @@
     <div class="bg-white rounded-lg shadow-lg overflow-hidden">
         {% if event.image %}
         <div class="w-full h-96 relative">
-            <img src="{{ SITE_URL }}{{ event.image.url }}" alt="{{ event.title }}" class="w-full h-full object-cover">
+            <img src="{{ event.image.url }}" alt="{{ event.title }}" class="w-full h-full object-cover">
         </div>
         {% endif %}
         

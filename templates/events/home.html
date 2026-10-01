@@ -26,7 +26,7 @@
             {% for event in events %}
             <div class="logo-card hover-lift overflow-hidden relative animate-scale-in">
                 {% if event.image %}
-                <img src="{{ SITE_URL }}{{ event.image.url }}" alt="{{ event.title }}" class="w-full h-48 object-cover">
+                <img src="{{ event.image.url }}" alt="{{ event.title }}" class="w-full h-48 object-cover">
                 {% endif %}
                 
                 {% if user.is_authenticated and event.user_rsvp %}
