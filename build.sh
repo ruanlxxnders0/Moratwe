@@ -3,7 +3,7 @@ set -o errexit
 
 pip install -r requirements.txt
 
-python manage.py collectstatic --no-input --ignore=highlight/styles/*
+python manage.py collectstatic --no-input --ignore=codesnippet
 python manage.py migrate
 
 if [[ -n "$ADMIN_EMAIL" && -n "$ADMIN_PASSWORD" ]]; then
