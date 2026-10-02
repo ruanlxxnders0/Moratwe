@@ -149,7 +149,7 @@
     <div class="module">
         <h2>Event Summary</h2>
         <p>
-            <strong>{% trans "Date" %}:</strong> {{ event.date|date:"F j, Y, P" }}<br>
+            <strong>{% trans "Date" %}:</strong> {{ event.date_display }}, {{ event.time_display }}<br>
             <strong>{% trans "Location" %}:</strong> {{ event.location }}<br>
             <strong>{% trans "Status" %}:</strong> 
             {% if event.is_active %}

@@ -78,8 +78,8 @@
                 <div>
                     <h2 class="text-2xl font-semibold mb-4">Event Details</h2>
                     <div class="space-y-2 text-gray-600">
-                        <p><strong>Date:</strong> {{ event.date|date:"l, F j, Y" }}</p>
-                        <p><strong>Time:</strong> {{ event.date|date:"g:i A" }}</p>
+                        <p><strong>Date:</strong> {{ event.date_display }}</p>
+                        <p><strong>Time:</strong> {{ event.time_display }}</p>
                         <p><strong>Location:</strong> {{ event.location }}</p>
                         <p><strong>Organizer:</strong> {{ event.organizer.get_full_name }}</p>
                     </div>

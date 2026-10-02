@@ -67,7 +67,11 @@ class Event(models.Model):
     """
     title = models.CharField(_('title'), max_length=255)
     description = models.TextField(_('description'), blank=True)
-    date = models.DateTimeField(_('date'), null=True, default=timezone.now)
+    date = models.DateTimeField(_('date'), null=True, blank=True, default=timezone.now)
+    date_tbc = models.BooleanField(_('date to be confirmed'), default=False,
+                                   help_text=_('Tick if the date is not confirmed yet. The date field can then be left as is.'))
+    time_tbc = models.BooleanField(_('time to be confirmed'), default=False,
+                                   help_text=_('Tick if the time is not confirmed yet.'))
     location = models.CharField(_('location'), max_length=255)
     image = models.ImageField(_('image'), upload_to='event_images/', blank=True, null=True)
     organizer = models.ForeignKey(
@@ -94,9 +98,47 @@ class Event(models.Model):
         """
         Check if the event is in the past.
         """
-        if not self.date:
+        if not self.date or self.date_tbc:
             return False
         return self.date < timezone.now()
+
+    @property
+    def date_display(self):
+        """Date for display, or 'To Be Confirmed' (TBC)."""
+        from django.utils.dateformat import format as date_format
+        if self.date_tbc or not self.date:
+            return 'To Be Confirmed (TBC)'
+        return date_format(timezone.localtime(self.date), 'l, F j, Y')
+
+    @property
+    def time_display(self):
+        """Time for display, or 'To Be Confirmed' (TBC)."""
+        from django.utils.dateformat import format as date_format
+        if self.time_tbc or not self.date:
+            return 'To Be Confirmed (TBC)'
+        return date_format(timezone.localtime(self.date), 'g:i A')
+
+    @property
+    def when_display(self):
+        """One line for emails, e.g. 'Monday, October 12, 2026 at 10:00 AM' or a TBC wording."""
+        if (self.date_tbc and self.time_tbc) or not self.date:
+            return 'Date and time to be confirmed (TBC)'
+        if self.date_tbc:
+            return f'Date to be confirmed (TBC) - {self.time_display}'
+        if self.time_tbc:
+            return f'{self.date_display} - time to be confirmed (TBC)'
+        return f'{self.date_display} at {self.time_display}'
+
+    def clean(self):
+        super().clean()
+        if not self.date and not self.date_tbc:
+            raise ValidationError({'date': _('Enter a date, or tick "date to be confirmed".')})
+
+    def save(self, *args, **kwargs):
+        # Keep a placeholder date so the mobile app and sorting keep working
+        if not self.date:
+            self.date = timezone.now()
+        super().save(*args, **kwargs)
 
 
 class BreakawaySession(models.Model):

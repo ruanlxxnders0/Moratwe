@@ -18,7 +18,7 @@ def generate_calendar_links(event, site_url=None):
     Returns:
         Dictionary containing calendar links and HTML
     """
-    if not event.date:
+    if not event.date or event.date_tbc or event.time_tbc:
         return {}
     
     # Convert to appropriate timezone-aware datetime

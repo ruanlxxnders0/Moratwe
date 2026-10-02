@@ -315,6 +315,7 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                         'guest_category': invitee.guest_category,
                         'guest_category_display': invitee.get_guest_category_display(),
                         'event': event,
+                        'event_when': event.when_display,
                         'rsvp_accept_url': rsvp_urls['accept'],
                         'rsvp_decline_url': rsvp_urls['decline'],
                         'register_url': f"{settings.SITE_URL.rstrip('/')}{reverse('events:smme_register', args=[event.id])}?{urlencode({'email': invitee.email, 'first_name': invitee.first_name or ''})}",

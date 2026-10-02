@@ -256,8 +256,8 @@ def send_confirmation_email(user, event, request=None):
                 
                 <div style="background-color: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
                     <h2 style="color: #333; margin-top: 0;">{{ event.title }}</h2>
-                    <p><strong>Date:</strong> {{ event.date|date:"l, F j, Y" }}</p>
-                    <p><strong>Time:</strong> {{ event.date|date:"g:i A" }}</p>
+                    <p><strong>Date:</strong> {{ event.date_display }}</p>
+                    <p><strong>Time:</strong> {{ event.time_display }}</p>
                     <p><strong>Location:</strong> {{ event.location }}</p>
                     {% if event.description %}
                     <p><strong>Description:</strong> {{ event.description }}</p>
