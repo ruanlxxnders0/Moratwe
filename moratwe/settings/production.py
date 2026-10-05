@@ -74,7 +74,7 @@ MEDIA_URL = '/media/'
 
 # Site URL for the deployed application
 # RENDER_EXTERNAL_URL is set automatically by Render to the live https URL
-SITE_URL = os.environ.get('RENDER_EXTERNAL_URL', 'https://rsvps.moratwe.co.za')
+SITE_URL = os.environ.get('SITE_URL', 'https://rsvps.moratwe.co.za')
 
 # CORS settings for production
 CORS_ALLOW_ALL_ORIGINS = False
