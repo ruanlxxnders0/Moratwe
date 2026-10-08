@@ -74,8 +74,10 @@ class Event(models.Model):
                                    help_text=_('Tick if the time is not confirmed yet.'))
     location = models.CharField(_('location'), max_length=255)
     image = models.ImageField(_('image'), upload_to='event_images/', blank=True, null=True)
+    logo = models.ImageField(_('client logo'), upload_to='event_logos/', blank=True, null=True,
+                             help_text=_('Shown at the top of the registration form for this event.'))
     organizer = models.ForeignKey(
-        CustomUser, 
+        CustomUser,
         on_delete=models.CASCADE, 
         related_name='organized_events', 
         verbose_name=_('organizer'),
