@@ -1774,6 +1774,31 @@ class RSVPAdmin(admin.ModelAdmin):
     mark_as_not_checked_in.short_description = _("Mark selected RSVPs as not checked in")
 
 
+def _xlsx_response(filename, headers, rows):
+    """Build a real Excel table (opens in columns regardless of regional list separator)."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    for row in rows:
+        ws.append(list(row))
+    for i, header in enumerate(headers, start=1):
+        longest = max([len(str(header))] + [len(str(r[i - 1] or '')) for r in rows[:200]])
+        ws.column_dimensions[get_column_letter(i)].width = min(longest + 2, 50)
+    ws.freeze_panes = 'A2'
+    ws.auto_filter.ref = ws.dimensions
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
 @admin.register(InviteeRSVP)
 class InviteeRSVPAdmin(admin.ModelAdmin):
     list_display = ('invitee_info', 'event', 'status', 'timestamp', 'created_at', 'email_sent', 'email_sent_at')
@@ -1806,47 +1831,34 @@ class InviteeRSVPAdmin(admin.ModelAdmin):
     
     def export_as_csv(self, request, queryset):
         """Export selected InviteeRSVPs to CSV."""
-        meta = self.model._meta
-        field_names = [
-            'Event Title',
-            'Event Date',
-            'Event Location',
-            'Invitee Email',
-            'Invitee First Name',
-            'Invitee Last Name',
-            'RSVP Status',
-            'Response Date',
-            'Email Sent',
-            'Email Sent At',
-            'Created At',
-            'Updated At'
+        from .models import SMMERegistration
+        headers = [
+            'First Name', 'Last Name', 'Email', 'Event', 'Event Date',
+            'Email Sent', 'Email Sent At', 'Registered', 'Registered At', 'RSVP Status',
         ]
-        
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="invitee_rsvps_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
-        
-        writer = csv.writer(response)
-        writer.writerow(field_names)
-        
-        for invitee_rsvp in queryset:
-            writer.writerow([
-                invitee_rsvp.event.title,
-                invitee_rsvp.event.date.strftime('%Y-%m-%d %H:%M') if invitee_rsvp.event.date else '',
-                invitee_rsvp.event.location,
-                invitee_rsvp.invitee.email,
-                invitee_rsvp.invitee.first_name,
-                invitee_rsvp.invitee.last_name,
-                invitee_rsvp.get_status_display(),
-                invitee_rsvp.timestamp.strftime('%Y-%m-%d %H:%M') if invitee_rsvp.timestamp else '',
-                'Yes' if invitee_rsvp.email_sent else 'No',
-                invitee_rsvp.email_sent_at.strftime('%Y-%m-%d %H:%M') if invitee_rsvp.email_sent_at else '',
-                invitee_rsvp.created_at.strftime('%Y-%m-%d %H:%M'),
-                invitee_rsvp.updated_at.strftime('%Y-%m-%d %H:%M')
+        queryset = queryset.select_related('event', 'invitee')
+        registrations = {
+            (r.event_id, r.email.lower()): r.created_at
+            for r in SMMERegistration.objects.filter(event__in={q.event_id for q in queryset})
+        }
+        rows = []
+        for rsvp in queryset:
+            reg_at = registrations.get((rsvp.event_id, rsvp.invitee.email.lower()))
+            rows.append([
+                rsvp.invitee.first_name,
+                rsvp.invitee.last_name,
+                rsvp.invitee.email,
+                rsvp.event.title,
+                rsvp.event.date.strftime('%Y-%m-%d %H:%M') if rsvp.event.date else '',
+                'Yes' if rsvp.email_sent else 'No',
+                rsvp.email_sent_at.strftime('%Y-%m-%d %H:%M') if rsvp.email_sent_at else '',
+                'Yes' if reg_at else 'No',
+                reg_at.strftime('%Y-%m-%d %H:%M') if reg_at else '',
+                rsvp.get_status_display(),
             ])
-        
-        return response
-    
-    export_as_csv.short_description = _("Export selected InviteeRSVPs to CSV")
+        return _xlsx_response(f'invitees_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx', headers, rows)
+
+    export_as_csv.short_description = _("Export selected invitees to Excel (with registered yes/no)")
     
     def mark_as_accepted(self, request, queryset):
         updated = queryset.update(status='accepted', timestamp=timezone.now())
@@ -1899,15 +1911,14 @@ class SMMERegistrationAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     actions = ['export_as_csv']
 
-    @admin.action(description='Export selected registrations to CSV')
+    @admin.action(description='Export selected registrations to Excel')
     def export_as_csv(self, request, queryset):
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="smme_registrations.csv"'
-        writer = csv.writer(response)
-        writer.writerow(['Name', 'Surname', 'Company/Organisation', 'Position', 'Email',
-                         'Tel', 'Mobile', 'Sector/Industry', 'Region', 'Category', 'Event', 'Registered at'])
-        for r in queryset.select_related('event'):
-            writer.writerow([r.name, r.surname, r.company, r.position, r.email, r.tel_number,
-                             r.mobile_number, r.sector, r.get_region_display(),
-                             r.get_category_display(), r.event.title, r.created_at.strftime('%Y-%m-%d %H:%M')])
-        return response
+        headers = ['Name', 'Surname', 'Company/Organisation', 'Position', 'Email',
+                   'Tel', 'Mobile', 'Sector/Industry', 'Region', 'Category', 'Event', 'Registered at']
+        rows = [
+            [r.name, r.surname, r.company, r.position, r.email, r.tel_number,
+             r.mobile_number, r.sector, r.get_region_display(), r.get_category_display(),
+             r.event.title, r.created_at.strftime('%Y-%m-%d %H:%M')]
+            for r in queryset.select_related('event').order_by('created_at')
+        ]
+        return _xlsx_response('smme_registrations.xlsx', headers, rows)
