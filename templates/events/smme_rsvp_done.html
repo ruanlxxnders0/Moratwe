@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}RSVP received{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-12 max-w-md text-center">
+    <div class="bg-white rounded-lg shadow-md p-8">
+        {% if event.logo %}
+        <div class="flex justify-center mb-6">
+            <img src="{{ event.logo.url }}" alt="{{ event.title }}" class="h-24 w-auto object-contain">
+        </div>
+        {% endif %}
+        {% if declined %}
+            <h1 class="text-2xl font-bold mb-3">Thank you for letting us know</h1>
+            <p class="text-gray-700">We have recorded that <strong>{{ reg.company }}</strong> will not be attending <strong>{{ event.title }}</strong>.</p>
+            <p class="mt-4 text-sm"><a class="text-blue-600 underline" href="{% url 'events:smme_rsvp' reg.rsvp_token 'confirm' %}">Changed your mind? Confirm attendance</a></p>
+        {% else %}
+            <h1 class="text-2xl font-bold mb-3">You're confirmed!</h1>
+            <p class="text-gray-700">Thank you {{ reg.name }}. Your attendance for <strong>{{ event.title }}</strong> is confirmed. Venue details for your region will be shared with confirmed attendees.</p>
+            <p class="mt-4 text-sm text-gray-600">Catering: {{ reg.get_catering_display }}{% if reg.catering_other %} ({{ reg.catering_other }}){% endif %}</p>
+            <p class="mt-4 text-sm"><a class="text-gray-600 underline" href="{% url 'events:smme_rsvp' reg.rsvp_token 'decline' %}">I can no longer attend</a></p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

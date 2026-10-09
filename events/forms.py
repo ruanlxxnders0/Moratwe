@@ -25,3 +25,24 @@ class SMMERegistrationForm(forms.ModelForm):
         if self.cleaned_data.get('website'):
             raise forms.ValidationError('Invalid submission.')
         return ''
+
+
+class SMMERSVPForm(forms.ModelForm):
+    class Meta:
+        model = SMMERegistration
+        fields = ['catering', 'catering_other']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['catering'].choices = [('', 'Select catering')] + list(SMMERegistration.CATERING_CHOICES)
+        self.fields['catering'].required = True
+        self.fields['catering_other'].required = False
+        self.fields['catering_other'].label = 'Please specify'
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('catering') == 'other' and not (cleaned.get('catering_other') or '').strip():
+            self.add_error('catering_other', 'Please specify your catering requirement.')
+        if cleaned.get('catering') != 'other':
+            cleaned['catering_other'] = ''
+        return cleaned

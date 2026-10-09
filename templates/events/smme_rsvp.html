@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}RSVP - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-xl">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        {% if event.logo %}
+        <div class="flex justify-center mb-6">
+            <img src="{{ event.logo.url }}" alt="{{ event.title }}" class="h-28 w-auto object-contain">
+        </div>
+        {% endif %}
+
+        {% if action == 'decline' %}
+            <h1 class="text-2xl font-bold mb-1">Decline attendance</h1>
+            <p class="text-gray-600 mb-4">{{ event.title }}</p>
+            <p class="text-gray-700 mb-6">Hi {{ reg.name }}, please confirm that <strong>{{ reg.company }}</strong> will not be attending.</p>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="w-full rounded-md bg-red-600 px-4 py-3 text-white font-semibold hover:bg-red-700">
+                    Yes, decline RSVP
+                </button>
+            </form>
+            <p class="mt-4 text-sm text-center">
+                <a class="text-blue-600 underline" href="{% url 'events:smme_rsvp' reg.rsvp_token 'confirm' %}">Changed your mind? Confirm attendance instead</a>
+            </p>
+        {% else %}
+            <h1 class="text-2xl font-bold mb-1">Confirm your attendance</h1>
+            <p class="text-gray-600 mb-4">{{ event.title }}</p>
+            <div class="mb-6 rounded-md bg-gray-50 border border-gray-200 p-4 text-sm text-gray-700">
+                <p><strong>{{ reg.name }} {{ reg.surname }}</strong>, {{ reg.company }}</p>
+                <p>{{ reg.get_region_display }} &middot; {{ reg.get_category_display }}</p>
+            </div>
+
+            <form method="post" class="space-y-4" novalidate>
+                {% csrf_token %}
+                <div>
+                    <label for="{{ form.catering.id_for_label }}" class="block text-sm font-medium text-gray-700">Catering</label>
+                    <div class="mt-1 [&>select]:block [&>select]:w-full [&>select]:rounded-md [&>select]:border [&>select]:border-gray-300 [&>select]:px-3 [&>select]:py-2">
+                        {{ form.catering }}
+                    </div>
+                    {% for error in form.catering.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div id="catering-other-wrap">
+                    <label for="{{ form.catering_other.id_for_label }}" class="block text-sm font-medium text-gray-700">Please specify</label>
+                    <div class="mt-1 [&>input]:block [&>input]:w-full [&>input]:rounded-md [&>input]:border [&>input]:border-gray-300 [&>input]:px-3 [&>input]:py-2">
+                        {{ form.catering_other }}
+                    </div>
+                    {% for error in form.catering_other.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <button type="submit" class="w-full rounded-md bg-green-600 px-4 py-3 text-white font-semibold hover:bg-green-700">
+                    Confirm RSVP
+                </button>
+            </form>
+            <p class="mt-4 text-sm text-center">
+                <a class="text-gray-600 underline" href="{% url 'events:smme_rsvp' reg.rsvp_token 'decline' %}">I can't attend</a>
+            </p>
+            <script>
+                (function () {
+                    var sel = document.getElementById('{{ form.catering.id_for_label }}');
+                    var wrap = document.getElementById('catering-other-wrap');
+                    function toggle() { wrap.style.display = sel.value === 'other' ? '' : 'none'; }
+                    sel.addEventListener('change', toggle);
+                    toggle();
+                })();
+            </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

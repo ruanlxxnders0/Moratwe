@@ -1909,16 +1909,77 @@ class SMMERegistrationAdmin(admin.ModelAdmin):
     list_filter = ('event', 'region', 'category', 'created_at')
     search_fields = ('name', 'surname', 'company', 'email', 'mobile_number', 'sector')
     readonly_fields = ('created_at', 'updated_at')
-    actions = ['export_as_csv']
+    actions = ['export_as_csv', 'send_rsvp_invitations', 'resend_rsvp_invitations']
+
+    def get_list_display(self, request):
+        return list(super().get_list_display(request)) + ['rsvp_status', 'catering']
+
+    def get_list_filter(self, request):
+        return list(super().get_list_filter(request)) + ['rsvp_status', 'catering']
 
     @admin.action(description='Export selected registrations to Excel')
     def export_as_csv(self, request, queryset):
         headers = ['Name', 'Surname', 'Company/Organisation', 'Position', 'Email',
-                   'Tel', 'Mobile', 'Sector/Industry', 'Region', 'Category', 'Event', 'Registered at']
+                   'Tel', 'Mobile', 'Sector/Industry', 'Region', 'Category', 'Event', 'Registered at',
+                   'RSVP Status', 'Catering', 'Catering (other)', 'RSVP responded at']
         rows = [
             [r.name, r.surname, r.company, r.position, r.email, r.tel_number,
              r.mobile_number, r.sector, r.get_region_display(), r.get_category_display(),
-             r.event.title, r.created_at.strftime('%Y-%m-%d %H:%M')]
+             r.event.title, r.created_at.strftime('%Y-%m-%d %H:%M'),
+             r.get_rsvp_status_display(), r.get_catering_display(), r.catering_other,
+             r.rsvp_responded_at.strftime('%Y-%m-%d %H:%M') if r.rsvp_responded_at else '']
             for r in queryset.select_related('event').order_by('created_at')
         ]
         return _xlsx_response('smme_registrations.xlsx', headers, rows)
+
+    def _send_rsvp_emails(self, request, queryset, resend):
+        from .tasks import send_via_sendgrid
+
+        template = EmailTemplate.objects.filter(name='SMME RSVP Invitation').first()
+        if not template:
+            self.message_user(request, 'Email template "SMME RSVP Invitation" not found.', messages.ERROR)
+            return
+        site = settings.SITE_URL.rstrip('/')
+        started = time.time()
+        sent = skipped = failed = left = 0
+        for reg in queryset.select_related('event', 'event__organizer'):
+            if reg.rsvp_status != 'pending' or (reg.rsvp_email_sent_at and not resend):
+                skipped += 1
+                continue
+            if time.time() - started > 240:
+                left += 1
+                continue
+            if not reg.rsvp_token:
+                reg.rsvp_token = uuid.uuid4()
+            context = Context({
+                'first_name': reg.name,
+                'last_name': reg.surname,
+                'company': reg.company,
+                'event': reg.event,
+                'rsvp_confirm_url': f"{site}{reverse('events:smme_rsvp', args=[reg.rsvp_token, 'confirm'])}",
+                'rsvp_decline_url': f"{site}{reverse('events:smme_rsvp', args=[reg.rsvp_token, 'decline'])}",
+                'SITE_URL': site,
+            })
+            try:
+                subject = Template(template.subject).render(context)
+                html = Template(template.content).render(context)
+                organizer = reg.event.organizer.get_full_name() if reg.event.organizer else ''
+                send_via_sendgrid(subject, html, reg.email, organizer or 'Moratwe Events')
+                reg.rsvp_email_sent_at = timezone.now()
+                reg.save(update_fields=['rsvp_token', 'rsvp_email_sent_at', 'updated_at'])
+                sent += 1
+            except Exception as e:
+                logger.error(f"SMME RSVP email to {reg.email} failed: {e}")
+                failed += 1
+        msg = f'RSVP emails: {sent} sent, {skipped} skipped (already sent or already responded), {failed} failed.'
+        if left:
+            msg += f' {left} not processed (time limit): run the action again on them.'
+        self.message_user(request, msg, messages.WARNING if (failed or left) else messages.SUCCESS)
+
+    @admin.action(description='Send RSVP invitation email (skips already sent / responded)')
+    def send_rsvp_invitations(self, request, queryset):
+        self._send_rsvp_emails(request, queryset, resend=False)
+
+    @admin.action(description='Resend RSVP invitation as reminder (only not yet responded)')
+    def resend_rsvp_invitations(self, request, queryset):
+        self._send_rsvp_emails(request, queryset, resend=True)

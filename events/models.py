@@ -436,6 +436,25 @@ class SMMERegistration(models.Model):
     sector = models.CharField(_('sector/industry'), max_length=150)
     region = models.CharField(_('Gauteng region'), max_length=20, choices=REGION_CHOICES)
     category = models.CharField(_('category'), max_length=20, choices=CATEGORY_CHOICES)
+
+    RSVP_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('declined', 'Declined'),
+    ]
+    CATERING_CHOICES = [
+        ('standard', 'Standard'),
+        ('halal', 'Halal'),
+        ('vegetarian', 'Vegetarian'),
+        ('other', 'Other (specify)'),
+    ]
+    rsvp_token = models.UUIDField(null=True, blank=True, unique=True, editable=False)
+    rsvp_status = models.CharField(_('RSVP status'), max_length=10, choices=RSVP_STATUS_CHOICES, default='pending')
+    rsvp_email_sent_at = models.DateTimeField(_('RSVP email sent at'), null=True, blank=True)
+    rsvp_responded_at = models.DateTimeField(_('RSVP responded at'), null=True, blank=True)
+    catering = models.CharField(_('catering'), max_length=10, choices=CATERING_CHOICES, blank=True)
+    catering_other = models.CharField(_('catering (other)'), max_length=200, blank=True)
+
     created_at = models.DateTimeField(_('registered at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
 

@@ -595,3 +595,32 @@ def smme_register(request, event_id):
 def smme_register_success(request, event_id):
     event = get_object_or_404(Event, pk=event_id)
     return render(request, 'events/smme_register_success.html', {'event': event})
+
+
+def smme_rsvp(request, token, action):
+    """RSVP page opened from the SMME RSVP invitation email (confirm or decline)."""
+    from .forms import SMMERSVPForm
+    from .models import SMMERegistration
+
+    if action not in ('confirm', 'decline'):
+        raise Http404()
+    reg = get_object_or_404(SMMERegistration.objects.select_related('event'), rsvp_token=token)
+
+    # Email scanners often open links automatically, so changes only happen on POST.
+    if request.method == 'POST':
+        if action == 'decline':
+            reg.rsvp_status = 'declined'
+            reg.rsvp_responded_at = timezone.now()
+            reg.save(update_fields=['rsvp_status', 'rsvp_responded_at', 'updated_at'])
+            return render(request, 'events/smme_rsvp_done.html', {'reg': reg, 'event': reg.event, 'declined': True})
+        form = SMMERSVPForm(request.POST, instance=reg)
+        if form.is_valid():
+            reg = form.save(commit=False)
+            reg.rsvp_status = 'confirmed'
+            reg.rsvp_responded_at = timezone.now()
+            reg.save()
+            return render(request, 'events/smme_rsvp_done.html', {'reg': reg, 'event': reg.event, 'declined': False})
+    else:
+        form = SMMERSVPForm(instance=reg)
+
+    return render(request, 'events/smme_rsvp.html', {'reg': reg, 'event': reg.event, 'form': form, 'action': action})
