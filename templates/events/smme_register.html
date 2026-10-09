@@ -26,9 +26,9 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {% for field in form.visible_fields %}
                     {% if field.name != 'website' %}
-                    <div {% if field.name == 'company' or field.name == 'sector' %}class="md:col-span-2"{% endif %}>
+                    <div {% if field.name == 'catering_other' %}id="catering-other-wrap" {% endif %}{% if field.name == 'company' or field.name == 'sector' or field.name == 'catering_other' %}class="md:col-span-2"{% endif %}>
                         <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                            {{ field.label }}{% if not field.field.required %} <span class="text-gray-500 text-xs">(optional)</span>{% endif %}
+                            {{ field.label }}{% if not field.field.required and field.name != 'catering_other' %} <span class="text-gray-500 text-xs">(optional)</span>{% endif %}
                         </label>
                         <div class="mt-1 [&>input]:block [&>input]:w-full [&>input]:rounded-md [&>input]:border [&>input]:border-gray-300 [&>input]:px-3 [&>input]:py-2 [&>select]:block [&>select]:w-full [&>select]:rounded-md [&>select]:border [&>select]:border-gray-300 [&>select]:px-3 [&>select]:py-2">
                             {{ field }}
@@ -45,6 +45,16 @@
                 Register
             </button>
         </form>
+        <script>
+            (function () {
+                var sel = document.getElementById('{{ form.catering.id_for_label }}');
+                var wrap = document.getElementById('catering-other-wrap');
+                if (!sel || !wrap) return;
+                function toggle() { wrap.style.display = sel.value === 'other' ? '' : 'none'; }
+                sel.addEventListener('change', toggle);
+                toggle();
+            })();
+        </script>
     </div>
 </div>
 {% endblock %}
