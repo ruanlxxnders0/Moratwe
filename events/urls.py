@@ -10,6 +10,7 @@ urlpatterns = [
     path('rsvp/register/', views.register_from_invitation, name='register_from_invitation'),
     path('<int:event_id>/register/', views.smme_register, name='smme_register'),
     path('smme-rsvp/<uuid:token>/<str:action>/', views.smme_rsvp, name='smme_rsvp'),
+    path('<int:event_id>/rsvp/', views.smme_rsvp_request, name='smme_rsvp_request'),
     path('<int:event_id>/register/success/', views.smme_register_success, name='smme_register_success'),
     path('<int:event_id>/', views.event_detail, name='event_detail'),
     path('<int:event_id>/update-rsvp/', views.update_rsvp, name='update_rsvp'),

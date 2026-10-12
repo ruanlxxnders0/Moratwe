@@ -624,3 +624,36 @@ def smme_rsvp(request, token, action):
         form = SMMERSVPForm(instance=reg)
 
     return render(request, 'events/smme_rsvp.html', {'reg': reg, 'event': reg.event, 'form': form, 'action': action})
+
+
+def smme_rsvp_request(request, event_id):
+    """Registered SMMEs enter their email to get their personal Confirm/Decline RSVP email."""
+    from django.core.cache import cache
+    from .forms import SMMERSVPRequestForm
+    from .models import SMMERegistration
+    from .rsvp_email import send_smme_rsvp_email
+
+    event = get_object_or_404(Event, pk=event_id, is_active=True)
+    sent = False
+    form = SMMERSVPRequestForm(request.POST or None)
+
+    if request.method == 'POST' and form.is_valid():
+        email = form.cleaned_data['email'].strip().lower()
+        ip = (request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+              or request.META.get('REMOTE_ADDR', ''))
+        ip_key, email_key = f'smme_rsvp_req_ip_{ip}', f'smme_rsvp_req_email_{email}'
+        ip_count = cache.get(ip_key, 0)
+        # Same answer in every case so the form can't be used to discover who registered.
+        if ip_count < 10 and not cache.get(email_key):
+            cache.set(ip_key, ip_count + 1, 600)
+            cache.set(email_key, True, 120)
+            reg = SMMERegistration.objects.select_related('event', 'event__organizer').filter(
+                event=event, email__iexact=email).first()
+            if reg:
+                try:
+                    send_smme_rsvp_email(reg, request.build_absolute_uri('/'))
+                except Exception as e:
+                    logger.error(f"SMME RSVP link request for {email} failed: {e}")
+        sent = True
+
+    return render(request, 'events/smme_rsvp_request.html', {'event': event, 'form': form, 'sent': sent})

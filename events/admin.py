@@ -1933,13 +1933,13 @@ class SMMERegistrationAdmin(admin.ModelAdmin):
         return _xlsx_response('smme_registrations.xlsx', headers, rows)
 
     def _send_rsvp_emails(self, request, queryset, resend):
-        from .tasks import send_via_sendgrid
+        from .rsvp_email import send_smme_rsvp_email, TEMPLATE_NAME
 
-        template = EmailTemplate.objects.filter(name='SMME RSVP Invitation').first()
-        if not template:
-            self.message_user(request, 'Email template "SMME RSVP Invitation" not found.', messages.ERROR)
+        if not EmailTemplate.objects.filter(name=TEMPLATE_NAME).exists():
+            self.message_user(request, f'Email template "{TEMPLATE_NAME}" not found.', messages.ERROR)
             return
-        site = settings.SITE_URL.rstrip('/')
+        # Use the address the admin is opened on, so links carry the custom domain.
+        base_url = request.build_absolute_uri('/')
         started = time.time()
         sent = skipped = failed = left = 0
         for reg in queryset.select_related('event', 'event__organizer'):
@@ -1949,24 +1949,8 @@ class SMMERegistrationAdmin(admin.ModelAdmin):
             if time.time() - started > 240:
                 left += 1
                 continue
-            if not reg.rsvp_token:
-                reg.rsvp_token = uuid.uuid4()
-            context = Context({
-                'first_name': reg.name,
-                'last_name': reg.surname,
-                'company': reg.company,
-                'event': reg.event,
-                'rsvp_confirm_url': f"{site}{reverse('events:smme_rsvp', args=[reg.rsvp_token, 'confirm'])}",
-                'rsvp_decline_url': f"{site}{reverse('events:smme_rsvp', args=[reg.rsvp_token, 'decline'])}",
-                'SITE_URL': site,
-            })
             try:
-                subject = Template(template.subject).render(context)
-                html = Template(template.content).render(context)
-                organizer = reg.event.organizer.get_full_name() if reg.event.organizer else ''
-                send_via_sendgrid(subject, html, reg.email, organizer or 'Moratwe Events')
-                reg.rsvp_email_sent_at = timezone.now()
-                reg.save(update_fields=['rsvp_token', 'rsvp_email_sent_at', 'updated_at'])
+                send_smme_rsvp_email(reg, base_url)
                 sent += 1
             except Exception as e:
                 logger.error(f"SMME RSVP email to {reg.email} failed: {e}")

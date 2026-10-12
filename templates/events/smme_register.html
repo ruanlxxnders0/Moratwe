@@ -2,6 +2,15 @@
 
 {% block title %}Register - {{ event.title }}{% endblock %}
 
+{% block extra_head %}
+<meta property="og:type" content="website">
+<meta property="og:title" content="Register: {{ event.title }}">
+<meta property="og:description" content="GGDA SCM Suppliers Imbizo Workshop for SMMEs across the five Gauteng regions. Register your business now.">
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}/static/images/imbizo-header.jpg">
+<meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-2xl">
     <div class="bg-white rounded-lg shadow-md p-6">

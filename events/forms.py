@@ -59,3 +59,7 @@ class SMMERSVPForm(forms.ModelForm):
         if cleaned.get('catering') != 'other':
             cleaned['catering_other'] = ''
         return cleaned
+
+
+class SMMERSVPRequestForm(forms.Form):
+    email = forms.EmailField(label='Email address you registered with')
