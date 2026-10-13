@@ -325,7 +325,7 @@ def process_invitations_task(self, task_id, event_id, batch_size):
                     
                     # Render email subject and content
                     subject = Template(template.subject).render(context)
-                    html_content = Template(template.content).render(context)
+                    html_content = template.render_html(context)
                     
                     # Build email payload to send via Resend
                     organizer_name = "Moratwe Events"
@@ -626,7 +626,7 @@ def process_rsvp_reminders(event, rsvps):
         })
         
         subject = Template(template.subject).render(context)
-        html_content = Template(template.content).render(context)
+        html_content = template.render_html(context)
         
         organizer_name = event.organizer.get_full_name() or 'Moratwe Events'
         messages_to_send.append((subject, html_content, organizer_name, invitee.email))

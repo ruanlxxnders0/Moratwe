@@ -546,7 +546,7 @@ class EventAdmin(admin.ModelAdmin):
                 
                 # Render the template - for reminders, we may want to prefix the subject
                 subject = "Reminder: " + Template(reminder_template.subject).render(context)
-                message = Template(reminder_template.content).render(context)
+                message = reminder_template.render_html(context)
                 
                 # Send email
                 plain_message = strip_tags(message)
@@ -676,7 +676,7 @@ class EventAdmin(admin.ModelAdmin):
                             })
                             
                             subject = Template(template.subject).render(context)
-                            message = Template(template.content).render(context)
+                            message = template.render_html(context)
                             
                             logger.info(f"Attempting to send email to: {invitee.email}")
                             
@@ -1136,7 +1136,7 @@ class EventAdmin(admin.ModelAdmin):
                         
                         # Render templates
                         subject = Template(template.subject).render(context)
-                        message = Template(template.content).render(context)
+                        message = template.render_html(context)
                         
                         # Send the email
                         plain_message = strip_tags(message)

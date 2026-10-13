@@ -312,7 +312,7 @@ def send_confirmation_email(user, event, request=None):
     })
     
     subject = Template(template.subject).render(context)
-    html_content = Template(template.content).render(context)
+    html_content = template.render_html(context)
 
     message = Mail(
         from_email=settings.DEFAULT_FROM_EMAIL,
@@ -549,7 +549,7 @@ def send_save_the_date_email(user, event, request=None):
     })
     
     subject = Template(template.subject).render(context)
-    html_content = Template(template.content).render(context)
+    html_content = template.render_html(context)
 
     message = Mail(
         from_email=settings.DEFAULT_FROM_EMAIL,

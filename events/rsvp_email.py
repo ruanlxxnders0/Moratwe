@@ -32,7 +32,7 @@ def send_smme_rsvp_email(reg, base_url=None):
         'SITE_URL': site,
     })
     subject = Template(template.subject).render(context)
-    html = Template(template.content).render(context)
+    html = template.render_html(context)
     organizer = reg.event.organizer.get_full_name() if reg.event.organizer else ''
     send_via_sendgrid(subject, html, reg.email, organizer or 'Moratwe Events')
 

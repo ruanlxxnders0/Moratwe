@@ -40,6 +40,10 @@ class EmailTemplate(models.Model):
         help_text=_('Which guest category this template is designed for')
     )
     is_default = models.BooleanField(_('is default'), default=False)
+    banner = models.ImageField(
+        _('banner image'), upload_to='email_banners/', blank=True, null=True,
+        help_text=_('Optional. Shown full width at the top of every email sent with this template.'),
+    )
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
 
@@ -50,6 +54,21 @@ class EmailTemplate(models.Model):
 
     def __str__(self):
         return self.name
+
+    def render_html(self, context):
+        """Render the template body, with the uploaded banner (if any) on top."""
+        from django.template import Template
+        from django.utils.html import escape
+
+        html = Template(self.content).render(context)
+        if self.banner:
+            banner = (
+                f'<img src="{escape(self.banner.url)}" alt="" width="600" '
+                'style="width: 100%; max-width: 600px; height: auto; display: block; '
+                'border: 0; margin: 0 auto 16px;">'
+            )
+            html = banner + html
+        return html
 
     def save(self, *args, **kwargs):
         if self.is_default:
