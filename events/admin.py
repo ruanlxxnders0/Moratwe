@@ -49,7 +49,7 @@ class EmailTemplateAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         (None, {
-            'fields': ('name', 'subject', 'guest_category', 'content', 'is_default')
+            'fields': ('name', 'subject', 'guest_category', 'banner', 'content', 'is_default')
         }),
         (_('Timestamps'), {
             'fields': ('created_at', 'updated_at'),
