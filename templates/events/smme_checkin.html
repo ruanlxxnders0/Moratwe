@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Check-in - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-3xl">
+    <h1 class="text-2xl font-bold mb-1">Check-in</h1>
+    <p class="text-gray-600 mb-4">{{ event.title }}</p>
+
+    <div class="grid grid-cols-3 gap-3 mb-6 text-center">
+        <div class="bg-white rounded-lg shadow p-3"><div class="text-2xl font-bold">{{ totals.confirmed }}</div><div class="text-xs text-gray-600">Confirmed</div></div>
+        <div class="bg-green-50 rounded-lg shadow p-3"><div class="text-2xl font-bold text-green-700">{{ totals.attended }}</div><div class="text-xs text-gray-600">Arrived</div></div>
+        <div class="bg-yellow-50 rounded-lg shadow p-3"><div class="text-2xl font-bold text-yellow-700">{{ totals.remaining }}</div><div class="text-xs text-gray-600">Not yet arrived</div></div>
+    </div>
+
+    <form method="get" class="flex gap-2 mb-4">
+        <input type="search" name="q" value="{{ q }}" placeholder="Name, surname, company or email" autofocus
+               class="flex-1 rounded-md border border-gray-300 px-3 py-3 text-base">
+        <button type="submit" class="rounded-md bg-blue-600 px-5 py-3 text-white font-semibold">Search</button>
+    </form>
+
+    {% if q %}
+        {% if results %}
+            <div class="space-y-3">
+            {% for r in results %}
+                <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between gap-3">
+                    <div>
+                        <div class="font-semibold">{{ r.name }} {{ r.surname }}</div>
+                        <div class="text-sm text-gray-600">{{ r.company }}</div>
+                        <div class="text-xs text-gray-500">{{ r.get_region_display }} · {{ r.get_catering_display }}</div>
+                    </div>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="registration_id" value="{{ r.pk }}">
+                        <input type="hidden" name="q" value="{{ q }}">
+                        {% if r.attended_at %}
+                            <input type="hidden" name="action" value="undo">
+                            <button type="submit" class="rounded-md bg-green-600 px-4 py-3 text-white font-semibold">Arrived ✓<br><span class="text-xs font-normal">tap to undo</span></button>
+                        {% else %}
+                            <input type="hidden" name="action" value="arrive">
+                            <button type="submit" class="rounded-md bg-blue-600 px-4 py-3 text-white font-semibold">Mark arrived</button>
+                        {% endif %}
+                    </form>
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-600">No confirmed SMME matches "{{ q }}". Only people who confirmed are listed here.</p>
+        {% endif %}
+    {% endif %}
+
+    <h2 class="text-lg font-semibold mt-8 mb-2">Per region</h2>
+    <table class="w-full bg-white rounded-lg shadow text-sm">
+        <thead><tr class="text-left border-b"><th class="p-2">Region</th><th class="p-2">Confirmed</th><th class="p-2">Arrived</th></tr></thead>
+        <tbody>
+        {% for r in regions %}
+            <tr class="border-b"><td class="p-2">{{ r.label }}</td><td class="p-2">{{ r.confirmed }}</td><td class="p-2">{{ r.attended }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="mt-6">
+        <a href="{% url 'events:smme_checkin_export' event.id %}" class="inline-block rounded-md bg-gray-800 px-4 py-3 text-white font-semibold">Download close-out report (Excel)</a>
+    </div>
+</div>
+{% endblock %}

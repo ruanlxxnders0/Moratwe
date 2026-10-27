@@ -473,6 +473,11 @@ class SMMERegistration(models.Model):
     rsvp_responded_at = models.DateTimeField(_('RSVP responded at'), null=True, blank=True)
     catering = models.CharField(_('catering'), max_length=10, choices=CATERING_CHOICES, blank=True)
     catering_other = models.CharField(_('catering (other)'), max_length=200, blank=True)
+    attended_at = models.DateTimeField(_('attended at'), null=True, blank=True)
+    attended_marked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+', verbose_name=_('marked attended by'),
+    )
 
     created_at = models.DateTimeField(_('registered at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)

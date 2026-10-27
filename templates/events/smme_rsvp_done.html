@@ -17,6 +17,11 @@
         {% else %}
             <h1 class="text-2xl font-bold mb-3">You're confirmed!</h1>
             <p class="text-gray-700">Thank you {{ reg.name }}. Your attendance for <strong>{{ event.title }}</strong> is confirmed. Venue details for your region will be shared with confirmed attendees.</p>
+            <div class="mt-6">
+                <p class="font-semibold mb-2">Your entry QR code</p>
+                <img src="{% url 'events:smme_qr' reg.rsvp_token %}" alt="Your QR code" class="mx-auto w-56 h-56">
+                <p class="text-sm text-gray-600 mt-2">Show this at the door on the day. Screenshot it, or check your email for a copy.</p>
+            </div>
             <p class="mt-4 text-sm text-gray-600">Catering: {{ reg.get_catering_display }}{% if reg.catering_other %} ({{ reg.catering_other }}){% endif %}</p>
             <p class="mt-4 text-sm"><a class="text-gray-600 underline" href="{% url 'events:smme_rsvp' reg.rsvp_token 'decline' %}">I can no longer attend</a></p>
         {% endif %}

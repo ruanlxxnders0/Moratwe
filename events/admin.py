@@ -1909,7 +1909,7 @@ class SMMERegistrationAdmin(admin.ModelAdmin):
     list_filter = ('event', 'region', 'category', 'created_at')
     search_fields = ('name', 'surname', 'company', 'email', 'mobile_number', 'sector')
     readonly_fields = ('created_at', 'updated_at')
-    actions = ['export_as_csv', 'send_rsvp_invitations', 'resend_rsvp_invitations']
+    actions = ['export_as_csv', 'send_rsvp_invitations', 'resend_rsvp_invitations', 'email_qr_codes']
 
     def get_list_display(self, request):
         return list(super().get_list_display(request)) + ['rsvp_status', 'catering']
@@ -1967,3 +1967,34 @@ class SMMERegistrationAdmin(admin.ModelAdmin):
     @admin.action(description='Resend RSVP invitation as reminder (only not yet responded)')
     def resend_rsvp_invitations(self, request, queryset):
         self._send_rsvp_emails(request, queryset, resend=True)
+
+    @admin.action(description='Email QR code to selected confirmed SMMEs (for the door)')
+    def email_qr_codes(self, request, queryset):
+        from .tasks import send_via_sendgrid
+        site = request.build_absolute_uri('/').rstrip('/')
+        sent = failed = skipped = 0
+        for reg in queryset.select_related('event', 'event__organizer'):
+            if reg.rsvp_status != 'confirmed' or not reg.rsvp_token:
+                skipped += 1
+                continue
+            qr_url = f"{site}{reverse('events:smme_qr', args=[reg.rsvp_token])}"
+            html = (
+                '<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #222222;">'
+                f'<p>Dear {reg.name},</p>'
+                f'<p>Thank you for confirming your attendance at <strong>{reg.event.title}</strong>.</p>'
+                '<p><strong>Please show this QR code at the door</strong> so our staff can check you in:</p>'
+                f'<p><img src="{qr_url}" alt="Your QR code" width="260" style="width: 260px; height: auto; display: block; border: 0;"></p>'
+                '<p>Keep this email until the day of the event.</p>'
+                '<p>Kind regards,<br>GGDA Group</p></div>'
+            )
+            try:
+                send_via_sendgrid(f'Your QR code: {reg.event.title}', html, reg.email, 'GGDA Group')
+                sent += 1
+            except Exception as e:
+                logger.error(f"QR email to {reg.email} failed: {e}")
+                failed += 1
+        self.message_user(
+            request,
+            f'QR emails: {sent} sent, {skipped} skipped (not confirmed), {failed} failed.',
+            messages.WARNING if failed else messages.SUCCESS,
+        )

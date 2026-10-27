@@ -1,5 +1,6 @@
 import logging
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.cache import cache
 from django.utils.translation import gettext as _
@@ -657,3 +658,115 @@ def smme_rsvp_request(request, event_id):
         sent = True
 
     return render(request, 'events/smme_rsvp_request.html', {'event': event, 'form': form, 'sent': sent})
+
+
+@staff_member_required
+def smme_checkin(request, event_id):
+    """Staff check-in for confirmed SMMEs on event day."""
+    from django.db.models import Q
+    from .models import SMMERegistration
+
+    event = get_object_or_404(Event, pk=event_id)
+    base = SMMERegistration.objects.filter(event=event)
+
+    if request.method == 'POST':
+        reg = get_object_or_404(base, pk=request.POST.get('registration_id'))
+        if request.POST.get('action') == 'undo':
+            reg.attended_at = None
+            reg.attended_marked_by = None
+        else:
+            reg.attended_at = timezone.now()
+            reg.attended_marked_by = request.user
+        reg.save(update_fields=['attended_at', 'attended_marked_by', 'updated_at'])
+        return redirect(f"{request.path}?q={request.POST.get('q', '')}")
+
+    q = request.GET.get('q', '').strip()
+    confirmed = base.filter(rsvp_status='confirmed')
+    results = []
+    if q:
+        results = (confirmed.filter(
+            Q(name__icontains=q) | Q(surname__icontains=q) | Q(company__icontains=q) | Q(email__icontains=q)
+        ).order_by('surname', 'name')[:50])
+
+    regions = []
+    for code, label in SMMERegistration.REGION_CHOICES:
+        c = confirmed.filter(region=code)
+        regions.append({
+            'label': label,
+            'confirmed': c.count(),
+            'attended': c.filter(attended_at__isnull=False).count(),
+        })
+    totals = {
+        'confirmed': confirmed.count(),
+        'attended': confirmed.filter(attended_at__isnull=False).count(),
+    }
+    totals['remaining'] = totals['confirmed'] - totals['attended']
+
+    return render(request, 'events/smme_checkin.html', {
+        'event': event, 'q': q, 'results': results, 'regions': regions, 'totals': totals,
+    })
+
+
+@staff_member_required
+def smme_checkin_export(request, event_id):
+    """Close-out report: registered, confirmed, attended per region plus the attendee list."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from .models import SMMERegistration
+
+    event = get_object_or_404(Event, pk=event_id)
+    all_regs = SMMERegistration.objects.filter(event=event)
+    wb = Workbook()
+
+    summary = wb.active
+    summary.title = 'Summary'
+    summary.append(['Region', 'Registered', 'Confirmed', 'Declined', 'Pending', 'Attended'])
+    for cell in summary[1]:
+        cell.font = Font(bold=True)
+    for code, label in SMMERegistration.REGION_CHOICES:
+        r = all_regs.filter(region=code)
+        summary.append([
+            label, r.count(), r.filter(rsvp_status='confirmed').count(),
+            r.filter(rsvp_status='declined').count(), r.filter(rsvp_status='pending').count(),
+            r.filter(rsvp_status='confirmed', attended_at__isnull=False).count(),
+        ])
+    summary.append([
+        'TOTAL', all_regs.count(), all_regs.filter(rsvp_status='confirmed').count(),
+        all_regs.filter(rsvp_status='declined').count(), all_regs.filter(rsvp_status='pending').count(),
+        all_regs.filter(rsvp_status='confirmed', attended_at__isnull=False).count(),
+    ])
+    for cell in summary[summary.max_row]:
+        cell.font = Font(bold=True)
+
+    people = wb.create_sheet('Confirmed attendees')
+    people.append(['Name', 'Surname', 'Company', 'Email', 'Mobile', 'Region', 'Category',
+                   'Catering', 'Catering (other)', 'Attended', 'Attended at', 'Marked by'])
+    for cell in people[1]:
+        cell.font = Font(bold=True)
+    for r in all_regs.filter(rsvp_status='confirmed').select_related('attended_marked_by').order_by('region', 'surname', 'name'):
+        people.append([
+            r.name, r.surname, r.company, r.email, r.mobile_number, r.get_region_display(),
+            r.get_category_display(), r.get_catering_display(), r.catering_other,
+            'Yes' if r.attended_at else 'No',
+            r.attended_at.strftime('%Y-%m-%d %H:%M') if r.attended_at else '',
+            r.attended_marked_by.get_full_name() or r.attended_marked_by.email if r.attended_marked_by else '',
+        ])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="smme_closeout_{event.id}.xlsx"'
+    wb.save(response)
+    return response
+
+
+def smme_qr_image(request, token):
+    """PNG QR code for a confirmed SMME, in the same JSON format as member RSVP codes."""
+    import io
+    import json
+    import qrcode
+    from .models import SMMERegistration
+
+    reg = get_object_or_404(SMMERegistration, rsvp_token=token, rsvp_status='confirmed')
+    payload = json.dumps({'event_id': str(reg.event_id), 'qr_code_data': str(token)})
+    buf = io.BytesIO()
+    qrcode.make(payload, box_size=10, border=4).save(buf, format='PNG')
+    return HttpResponse(buf.getvalue(), content_type='image/png')
