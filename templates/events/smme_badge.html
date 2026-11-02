@@ -4,22 +4,30 @@
 <meta charset="utf-8">
 <title>Badge - {{ reg.name }} {{ reg.surname }}</title>
 <style>
-  @page { size: 90mm 60mm; margin: 0; }
-  body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
-  .badge { width: 90mm; height: 60mm; box-sizing: border-box; padding: 4mm; display: flex; flex-direction: column; justify-content: space-between; }
-  .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  @page { size: A4 landscape; margin: 0; }
+  html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+  .sheet { width: 297mm; height: 210mm; display: flex; align-items: center; justify-content: center; }
+  .badge {
+    width: 90mm; height: 60mm; box-sizing: border-box;
+    border: 0.6mm solid #000;
+    padding: 3mm 4mm;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .logo { height: 11mm; width: auto; display: block; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 3mm; }
   .name { font-size: 15pt; font-weight: bold; line-height: 1.1; }
   .company { font-size: 9pt; margin-top: 1mm; }
   .meta { font-size: 7.5pt; color: #333; margin-top: 1mm; }
-  .qr { width: 22mm; height: 22mm; }
-  .bar { background: #111; color: #fff; text-align: center; font-weight: bold; font-size: 11pt; padding: 1.5mm 0; letter-spacing: 1px; }
-  @media screen { body { background: #eee; padding: 20px; } .badge { background: #fff; } }
+  .qr { width: 22mm; height: 22mm; flex-shrink: 0; }
+  .bar { background: #111; color: #fff; text-align: center; font-weight: bold; font-size: 18pt; letter-spacing: 1px; padding: 1.5mm 0; }
+  @media screen { body { background: #eee; } .sheet { height: auto; padding: 20px; box-sizing: border-box; } .badge { background: #fff; } }
 </style>
 </head>
 <body onload="window.print()">
+<div class="sheet">
 <div class="badge">
-  <div class="top">
-    {% if event.badge_logo %}<img src="{{ event.badge_logo.url }}" alt="" style="height:12mm;width:auto;">{% endif %}
+  {% if event.badge_logo %}<img class="logo" src="{{ event.badge_logo.url }}" alt="">{% endif %}
+  <div class="row">
     <div>
       <div class="name">{{ reg.name }} {{ reg.surname }}</div>
       <div class="company">{{ reg.company }}</div>
@@ -28,6 +36,7 @@
     {% if reg.rsvp_token %}<img class="qr" src="{% url 'events:smme_qr' reg.rsvp_token %}" alt="QR">{% endif %}
   </div>
   <div class="bar">{{ bar_text }}</div>
+</div>
 </div>
 </body>
 </html>
