@@ -95,6 +95,10 @@ class Event(models.Model):
     image = models.ImageField(_('image'), upload_to='event_images/', blank=True, null=True)
     logo = models.ImageField(_('client logo'), upload_to='event_logos/', blank=True, null=True,
                              help_text=_('Shown at the top of the registration form for this event.'))
+    badge_bar_text = models.CharField(_('badge bar text'), max_length=40, default='SMME', blank=True,
+                                      help_text=_('Text on the black bar of the printed SMME badge, e.g. SMME or VISITOR.'))
+    badge_logo = models.ImageField(_('badge logo'), upload_to='event_badge_logos/', blank=True, null=True,
+                                   help_text=_('Optional logo printed on the SMME badge.'))
     organizer = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE, 

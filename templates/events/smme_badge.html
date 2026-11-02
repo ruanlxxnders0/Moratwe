@@ -19,6 +19,7 @@
 <body onload="window.print()">
 <div class="badge">
   <div class="top">
+    {% if event.badge_logo %}<img src="{{ event.badge_logo.url }}" alt="" style="height:12mm;width:auto;">{% endif %}
     <div>
       <div class="name">{{ reg.name }} {{ reg.surname }}</div>
       <div class="company">{{ reg.company }}</div>

@@ -772,9 +772,6 @@ def smme_qr_image(request, token):
     return HttpResponse(buf.getvalue(), content_type='image/png')
 
 
-BADGE_BAR_TEXT = 'SMME'
-
-
 @staff_member_required
 def smme_badge(request, event_id, reg_id):
     """Printable 90x60mm name badge for one confirmed SMME."""
@@ -783,5 +780,5 @@ def smme_badge(request, event_id, reg_id):
     event = get_object_or_404(Event, pk=event_id)
     reg = get_object_or_404(SMMERegistration, pk=reg_id, event=event, rsvp_status='confirmed')
     return render(request, 'events/smme_badge.html', {
-        'event': event, 'reg': reg, 'bar_text': BADGE_BAR_TEXT,
+        'event': event, 'reg': reg, 'bar_text': event.badge_bar_text or 'SMME',
     })
