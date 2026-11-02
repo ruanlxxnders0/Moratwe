@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Badge - {{ reg.name }} {{ reg.surname }}</title>
+<style>
+  @page { size: 90mm 60mm; margin: 0; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
+  .badge { width: 90mm; height: 60mm; box-sizing: border-box; padding: 4mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .name { font-size: 15pt; font-weight: bold; line-height: 1.1; }
+  .company { font-size: 9pt; margin-top: 1mm; }
+  .meta { font-size: 7.5pt; color: #333; margin-top: 1mm; }
+  .qr { width: 22mm; height: 22mm; }
+  .bar { background: #111; color: #fff; text-align: center; font-weight: bold; font-size: 11pt; padding: 1.5mm 0; letter-spacing: 1px; }
+  @media screen { body { background: #eee; padding: 20px; } .badge { background: #fff; } }
+</style>
+</head>
+<body onload="window.print()">
+<div class="badge">
+  <div class="top">
+    <div>
+      <div class="name">{{ reg.name }} {{ reg.surname }}</div>
+      <div class="company">{{ reg.company }}</div>
+      <div class="meta">{{ reg.get_region_display }} · {{ reg.get_category_display }}</div>
+    </div>
+    {% if reg.rsvp_token %}<img class="qr" src="{% url 'events:smme_qr' reg.rsvp_token %}" alt="QR">{% endif %}
+  </div>
+  <div class="bar">{{ bar_text }}</div>
+</div>
+</body>
+</html>

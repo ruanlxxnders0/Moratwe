@@ -29,6 +29,8 @@
                         <div class="text-sm text-gray-600">{{ r.company }}</div>
                         <div class="text-xs text-gray-500">{{ r.get_region_display }} · {{ r.get_catering_display }}</div>
                     </div>
+                    <div class="flex flex-col gap-2">
+                    <a href="{% url 'events:smme_badge' event.id r.pk %}" target="_blank" class="rounded-md border border-gray-400 px-3 py-2 text-sm text-center">Print badge</a>
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="registration_id" value="{{ r.pk }}">
@@ -41,6 +43,7 @@
                             <button type="submit" class="rounded-md bg-blue-600 px-4 py-3 text-white font-semibold">Mark arrived</button>
                         {% endif %}
                     </form>
+                    </div>
                 </div>
             {% endfor %}
             </div>

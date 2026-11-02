@@ -770,3 +770,18 @@ def smme_qr_image(request, token):
     buf = io.BytesIO()
     qrcode.make(payload, box_size=10, border=4).save(buf, format='PNG')
     return HttpResponse(buf.getvalue(), content_type='image/png')
+
+
+BADGE_BAR_TEXT = 'SMME'
+
+
+@staff_member_required
+def smme_badge(request, event_id, reg_id):
+    """Printable 90x60mm name badge for one confirmed SMME."""
+    from .models import SMMERegistration
+
+    event = get_object_or_404(Event, pk=event_id)
+    reg = get_object_or_404(SMMERegistration, pk=reg_id, event=event, rsvp_status='confirmed')
+    return render(request, 'events/smme_badge.html', {
+        'event': event, 'reg': reg, 'bar_text': BADGE_BAR_TEXT,
+    })
