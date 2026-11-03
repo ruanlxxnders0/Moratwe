@@ -807,10 +807,11 @@ def smme_badges_bulk(request, event_id):
         lo, hi = first or 'A', last or 'Z'
         regs = [r for r in regs if lo <= (r.surname.strip()[:1].upper() or 'A') <= hi]
 
-    per_page = 8
+    single = request.GET.get('layout') == 'single'
+    per_page = 1 if single else 8
     pages = [regs[i:i + per_page] for i in range(0, len(regs), per_page)]
     return render(request, 'events/smme_badges_bulk.html', {
         'event': event, 'pages': pages, 'total': len(regs), 'bar_text': event.badge_bar_text or 'SMME',
-        'region': region, 'first': first, 'last': last,
+        'region': region, 'first': first, 'last': last, 'single': single,
         'regions': SMMERegistration.REGION_CHOICES,
     })
