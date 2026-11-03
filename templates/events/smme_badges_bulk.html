@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Badges - {{ event.title }}</title>
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+  .toolbar { padding: 12px 16px; background: #f3f4f6; border-bottom: 1px solid #ccc; font-size: 14px; }
+  .toolbar form { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toolbar input, .toolbar select { padding: 4px 6px; }
+  .toolbar button { padding: 6px 12px; cursor: pointer; }
+  .page { width: 210mm; height: 297mm; box-sizing: border-box; padding: 28.5mm 15mm; page-break-after: always; break-after: page; display: grid; grid-template-columns: 90mm 90mm; grid-auto-rows: 60mm; justify-content: center; align-content: start; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .badge { width: 90mm; height: 60mm; box-sizing: border-box; border: 0.6mm solid #000; padding: 3mm 4mm; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+  .logo { align-self: flex-start; height: 13mm; width: auto; max-width: 100%; object-fit: contain; display: block; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 3mm; }
+  .name { font-size: 15pt; font-weight: bold; line-height: 1.1; }
+  .company { font-size: 9pt; margin-top: 1mm; }
+  .meta { font-size: 7.5pt; color: #333; margin-top: 1mm; }
+  .qr { width: 22mm; height: 22mm; flex-shrink: 0; }
+  .bar { background: #111; color: #fff; text-align: center; font-weight: bold; font-size: 18pt; letter-spacing: 1px; padding: 1.5mm 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @media print { .toolbar { display: none; } }
+  @media screen { .page { margin: 10px auto; background: #fff; box-shadow: 0 0 6px #aaa; } body { background: #e5e7eb; } }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <strong>{{ total }} badge{{ total|pluralize }}</strong> ({{ pages|length }} page{{ pages|length|pluralize }}), sorted by surname.
+  <form method="get">
+    Region:
+    <select name="region">
+      <option value="">All regions</option>
+      {% for code, label in regions %}<option value="{{ code }}" {% if code == region %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    Surname from <input name="from" size="1" maxlength="1" value="{{ first }}"> to <input name="to" size="1" maxlength="1" value="{{ last }}">
+    <button type="submit">Apply</button>
+    <button type="button" onclick="window.print()">Print / Save as PDF</button>
+  </form>
+</div>
+{% for page in pages %}
+<div class="page">
+  {% for reg in page %}
+  <div class="badge">
+    {% if event.badge_logo %}<img class="logo" src="{{ event.badge_logo.url }}" alt="">{% endif %}
+    <div class="row">
+      <div>
+        <div class="name">{{ reg.name }} {{ reg.surname }}</div>
+        <div class="company">{{ reg.company }}</div>
+        <div class="meta">{{ reg.get_region_display }} · {{ reg.get_category_display }}</div>
+      </div>
+      {% if reg.rsvp_token %}<img class="qr" src="{% url 'events:smme_qr' reg.rsvp_token %}" alt="QR">{% endif %}
+    </div>
+    <div class="bar">{{ bar_text }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% empty %}
+<p style="padding:20px">No confirmed SMMEs match these filters.</p>
+{% endfor %}
+</body>
+</html>

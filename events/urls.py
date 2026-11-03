@@ -13,6 +13,7 @@ urlpatterns = [
     path('smme-rsvp/<uuid:token>/qr.png', views.smme_qr_image, name='smme_qr'),
     path('<int:event_id>/checkin/', views.smme_checkin, name='smme_checkin'),
     path('<int:event_id>/checkin/badge/<int:reg_id>/', views.smme_badge, name='smme_badge'),
+    path('<int:event_id>/checkin/badges/', views.smme_badges_bulk, name='smme_badges_bulk'),
     path('<int:event_id>/checkin/export/', views.smme_checkin_export, name='smme_checkin_export'),
     path('<int:event_id>/rsvp/', views.smme_rsvp_request, name='smme_rsvp_request'),
     path('<int:event_id>/register/success/', views.smme_register_success, name='smme_register_success'),

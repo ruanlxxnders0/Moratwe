@@ -782,3 +782,35 @@ def smme_badge(request, event_id, reg_id):
     return render(request, 'events/smme_badge.html', {
         'event': event, 'reg': reg, 'bar_text': event.badge_bar_text or 'SMME',
     })
+
+
+@staff_member_required
+def smme_badges_bulk(request, event_id):
+    """All confirmed SMME badges, 8 per A4 page, sorted alphabetically, for printing or saving as PDF."""
+    from django.db.models.functions import Lower
+    from .models import SMMERegistration
+
+    event = get_object_or_404(Event, pk=event_id)
+    regs = SMMERegistration.objects.filter(event=event, rsvp_status='confirmed')
+
+    region = request.GET.get('region', '')
+    if region in dict(SMMERegistration.REGION_CHOICES):
+        regs = regs.filter(region=region)
+    else:
+        region = ''
+
+    regs = list(regs.order_by(Lower('surname'), Lower('name')))
+
+    first = (request.GET.get('from', '') or '').strip().upper()[:1]
+    last = (request.GET.get('to', '') or '').strip().upper()[:1]
+    if first or last:
+        lo, hi = first or 'A', last or 'Z'
+        regs = [r for r in regs if lo <= (r.surname.strip()[:1].upper() or 'A') <= hi]
+
+    per_page = 8
+    pages = [regs[i:i + per_page] for i in range(0, len(regs), per_page)]
+    return render(request, 'events/smme_badges_bulk.html', {
+        'event': event, 'pages': pages, 'total': len(regs), 'bar_text': event.badge_bar_text or 'SMME',
+        'region': region, 'first': first, 'last': last,
+        'regions': SMMERegistration.REGION_CHOICES,
+    })

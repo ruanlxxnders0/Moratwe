@@ -62,7 +62,8 @@
         </tbody>
     </table>
 
-    <div class="mt-6">
+    <div class="mt-6 flex flex-wrap gap-3">
+        <a href="{% url 'events:smme_badges_bulk' event.id %}" target="_blank" class="inline-block rounded-md bg-blue-600 px-4 py-3 text-white font-semibold">Print all badges (A4, 8 per page)</a>
         <a href="{% url 'events:smme_checkin_export' event.id %}" class="inline-block rounded-md bg-gray-800 px-4 py-3 text-white font-semibold">Download close-out report (Excel)</a>
     </div>
 </div>
