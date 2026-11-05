@@ -295,8 +295,11 @@ class CustomTokenObtainPairView(views.APIView):
             )
 
         try:
-            user = CustomUser.objects.get(email=email)
-            
+            email = str(email).strip()
+            user = CustomUser.objects.filter(email__iexact=email).first()
+            if user is None:
+                raise CustomUser.DoesNotExist
+
             # Check if user is active
             if not user.is_active:
                 return Response(
