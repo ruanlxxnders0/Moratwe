@@ -75,6 +75,8 @@ class CheckInByQRCodeSerializer(serializers.Serializer):
             return {
                 'type': 'smme',
                 'name': f"{reg.name} {reg.surname}",
+                'user_full_name': f"{reg.name} {reg.surname} ({reg.company})",
+                'user_email': reg.email,
                 'company': reg.company,
                 'region': reg.get_region_display(),
                 'event_title': reg.event.title,
